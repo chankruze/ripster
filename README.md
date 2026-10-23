@@ -1,26 +1,38 @@
-This is a Kotlin Multiplatform project targeting Android.
+# Ripster
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+An on-device HLS downloader. Paste a direct link to an HLS manifest (`.m3u8`), inspect its
+quality variants, download one, and get a standalone MP4. Everything happens on the device: no
+backend, no uploading media anywhere for processing.
 
-### Running the apps
+Ripster is a Kotlin Multiplatform (KMP) project with Compose Multiplatform UI. Android is the
+first and currently only implemented platform; the shared code is kept free of Android types so
+an iOS app can be added later.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+> Only download media you're allowed to download. Ripster accepts direct manifest links only:
+> it doesn't scrape web pages, extract from third-party sites, or bypass DRM, authentication or
+> other access restrictions.
 
-- Android app: `./gradlew :androidApp:assembleDebug`
+## Requirements
 
-### Running tests
+- Android Studio (or the Android SDK command-line tools) with API level 37 installed.
+- JDK 17 or newer to start Gradle. The Gradle daemon itself runs on JDK 21
+  (`gradle/gradle-daemon-jvm.properties`), which Gradle downloads automatically if missing.
+- An Android device or emulator running Android 9 (API 28) or newer.
 
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
+## Build, run and test
 
-- Android tests: `./gradlew :shared:testAndroidHostTest`
+```bash
+# Debug APK: androidApp/build/outputs/apk/debug/androidApp-debug.apk
+./gradlew :androidApp:assembleDebug
 
----
+# Build and install on the connected device
+./gradlew :androidApp:installDebug
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+# Unit tests (commonTest and androidHostTest, on the local JVM; no device needed)
+./gradlew :shared:testAndroidHostTest
+
+# Android lint
+./gradlew :androidApp:lint
+```
+
+The sample-stream picker is only shown in debug builds.
