@@ -17,18 +17,21 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,44 +83,52 @@ class JobActions(
     val share: (DownloadJob) -> Unit,
 )
 
+/** The queue's two views. Active is the default; finished jobs stay until removed. */
+enum class QueueTab(val label: String) { Active("Active"), Finished("Finished") }
+
 @Composable
 fun QueueScreen(state: QueueUiState, actions: JobActions, modifier: Modifier = Modifier) {
+    var tab by rememberSaveable { mutableStateOf(QueueTab.Active) }
     ScreenScaffold(title = "Queue", modifier = modifier) { contentModifier ->
-        if (state.isEmpty) {
-            Box(contentModifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    "Nothing here yet. Inspect a manifest on the Download tab and add it to the queue.",
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Column(contentModifier.fillMaxSize()) {
+            PrimaryTabRow(selectedTabIndex = tab.ordinal) {
+                QueueTab.entries.forEach { item ->
+                    val count = if (item == QueueTab.Active) state.active.size else state.finished.size
+                    Tab(
+                        selected = item == tab,
+                        onClick = { tab = item },
+                        text = { Text(if (count > 0) "${item.label} ($count)" else item.label) },
+                    )
+                }
             }
-            return@ScreenScaffold
-        }
-        LazyColumn(
-            modifier = contentModifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (state.active.isNotEmpty()) {
-                item(key = "active") { SectionHeading("Active") }
-                items(state.active, key = { it.id }) { JobCard(it, actions) }
-            }
-            if (state.finished.isNotEmpty()) {
-                item(key = "finished") { SectionHeading("Finished") }
-                items(state.finished, key = { it.id }) { JobCard(it, actions) }
+            val jobs = if (tab == QueueTab.Active) state.active else state.finished
+            if (jobs.isEmpty()) {
+                EmptyTab(tab)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(jobs, key = { it.id }) { JobCard(it, actions) }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SectionHeading(text: String) {
-    Text(
-        text,
-        modifier = Modifier.semantics { heading() },
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-    )
+private fun EmptyTab(tab: QueueTab) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Text(
+            when (tab) {
+                QueueTab.Active -> "Nothing downloading. Inspect a manifest on the Download tab and add it to the queue."
+                QueueTab.Finished -> "Completed, failed and cancelled downloads appear here."
+            },
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

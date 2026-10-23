@@ -15,8 +15,6 @@ data class QueueUiState(
     val active: List<DownloadJob> = emptyList(),
     val finished: List<DownloadJob> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = active.isEmpty() && finished.isEmpty()
-
     companion object {
         /** Active jobs oldest first (queue order); finished ones newest first. */
         fun from(jobs: List<DownloadJob>) = QueueUiState(
