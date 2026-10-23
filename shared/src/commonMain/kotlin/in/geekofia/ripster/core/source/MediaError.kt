@@ -42,8 +42,8 @@ sealed class MediaError {
         override val category get() = ErrorCategory.NeedsUserAction
     }
 
-    /** The page declares media, but only formats Ripster can't download yet (e.g. a plain MP4). */
-    data class PageMediaNotHls(val hasMp4: Boolean) : MediaError() {
+    /** The page declares media, but only in formats Ripster can't download (not HLS, MP4, MKV or WebM). */
+    data object UnsupportedPageMedia : MediaError() {
         override val category get() = ErrorCategory.Unsupported
     }
 

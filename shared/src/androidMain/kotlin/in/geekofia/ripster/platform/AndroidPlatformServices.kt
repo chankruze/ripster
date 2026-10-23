@@ -12,7 +12,6 @@ import androidx.core.content.FileProvider
 import `in`.geekofia.ripster.core.download.OutputFile
 import `in`.geekofia.ripster.core.download.StorageInfo
 import `in`.geekofia.ripster.download.AndroidDownloads
-import `in`.geekofia.ripster.export.OutputPublisher
 import java.io.File
 
 /**
@@ -52,7 +51,7 @@ private class AndroidFileActions(private val context: Context) : FileActions {
     override fun open(output: OutputFile): Boolean {
         val uri = contentUri(output) ?: return false
         val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, OutputPublisher.MIME_TYPE)
+            .setDataAndType(uri, output.mimeType)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         return launch(intent)
     }
@@ -60,7 +59,7 @@ private class AndroidFileActions(private val context: Context) : FileActions {
     override fun share(output: OutputFile): Boolean {
         val uri = contentUri(output) ?: return false
         val send = Intent(Intent.ACTION_SEND)
-            .setType(OutputPublisher.MIME_TYPE)
+            .setType(output.mimeType)
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(output.displayName, uri)

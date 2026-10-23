@@ -6,6 +6,8 @@ class HttpResponse(
     val statusCode: Int,
     val contentType: String?,
     val body: ByteArray,
+    /** The resource's full size, from `Content-Range` or `Content-Length`, when the server says. */
+    val totalBytes: Long? = null,
 )
 
 /**
@@ -18,4 +20,11 @@ class HttpResponse(
  */
 interface HttpClient {
     suspend fun get(url: String, maxBytes: Int): HttpResponse
+
+    /**
+     * Reads only the first [bytes] of the resource (a `Range` request; if the server ignores it,
+     * reading stops after [bytes] anyway), with the same redirect rules as [get]. Never throws
+     * `ResponseTooLarge`: it's how a large media file is identified without downloading it.
+     */
+    suspend fun probe(url: String, bytes: Int): HttpResponse
 }

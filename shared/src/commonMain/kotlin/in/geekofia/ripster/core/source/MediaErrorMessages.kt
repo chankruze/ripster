@@ -18,15 +18,11 @@ fun MediaError.message(): ErrorMessage = when (this) {
     MediaError.NoMediaOnPage -> ErrorMessage(
         "No downloadable media on this page",
         "The page doesn't publish a media link in a standard way (video element, Open Graph or schema.org). " +
-            "Ripster doesn't run page scripts or work around a site's player. Paste a direct .m3u8 link instead.",
+            "Ripster doesn't run page scripts or work around a site's player. Paste a direct media link instead.",
     )
-    is MediaError.PageMediaNotHls -> ErrorMessage(
+    MediaError.UnsupportedPageMedia -> ErrorMessage(
         "Unsupported media format",
-        if (hasMp4) {
-            "The page offers a direct MP4 file. This version downloads HLS streams only."
-        } else {
-            "The page declares media, but not in a format Ripster can download (HLS)."
-        },
+        "The page declares media, but not in a format Ripster can download (HLS, MP4, MKV or WebM).",
     )
     is MediaError.NotHls -> ErrorMessage(
         "Not an HLS manifest",

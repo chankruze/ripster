@@ -57,7 +57,7 @@ fun QueueRoute(
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val noApp: (Boolean) -> Unit = { handled ->
-        if (!handled) scope.launch { snackbar.showSnackbar("No app on this device can handle MP4 files.") }
+        if (!handled) scope.launch { snackbar.showSnackbar("No app on this device can open this file.") }
     }
     Box(modifier) {
         QueueScreen(
@@ -207,7 +207,7 @@ private fun DownloadJob.stateLabel(): String = when (state) {
     DownloadState.Queued -> "Queued"
     DownloadState.Resolving -> "Checking source"
     DownloadState.Downloading -> if (waitingForNetwork) "Waiting for network" else "Downloading"
-    DownloadState.Exporting -> "Exporting MP4"
+    DownloadState.Exporting -> if (file != null) "Saving file" else "Exporting MP4"
     DownloadState.Completed -> "Completed"
     DownloadState.Failed -> "Failed"
     DownloadState.Cancelled -> "Cancelled"
@@ -221,6 +221,7 @@ private fun DownloadJob.stateColor() = when (state) {
 }
 
 private fun DownloadJob.qualityLine(): String? = listOfNotNull(
+    file?.let { "${it.label} file" },
     selection.resolution,
     selection.bandwidth?.let(::formatBitrate),
     "sample".takeIf { isSample },
@@ -229,7 +230,10 @@ private fun DownloadJob.qualityLine(): String? = listOfNotNull(
 private fun DownloadJob.progressLine(): String {
     val percent = progress?.let { "${(it * 100).toInt()}%" }
     return when (state) {
-        DownloadState.Exporting -> percent?.let { "Exporting · $it" } ?: "Exporting…"
+        DownloadState.Exporting -> {
+            val verb = if (file != null) "Saving" else "Exporting"
+            percent?.let { "$verb · $it" } ?: "$verb…"
+        }
         else -> listOfNotNull(percent, formatBytes(bytesDownloaded).takeIf { bytesDownloaded > 0 })
             .joinToString(" · ")
             .ifEmpty { if (waitingForNetwork) "Paused until a connection is available" else "Starting…" }

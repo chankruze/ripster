@@ -7,7 +7,8 @@ enum class MediaDeclaration(val label: String) {
     StructuredData("schema.org VideoObject"),
 }
 
-enum class DeclaredMediaKind { Hls, Mp4, Other }
+/** [File] is a direct MP4/MKV/WebM link by its declared type or name; its bytes are checked later. */
+enum class DeclaredMediaKind { Hls, File, Other }
 
 /** A media URL the page itself publishes. [url] is absolute and https (others are dropped). */
 data class DeclaredMedia(val url: String, val kind: DeclaredMediaKind, val declaration: MediaDeclaration)
@@ -30,6 +31,8 @@ data class PageMedia(
  */
 object PageMediaExtractor {
     private const val MAX_MEDIA = 20
+    private val fileTypes = setOf("video/mp4", "video/x-matroska", "video/webm")
+    private val fileExtensions = listOf(".mp4", ".m4v", ".mkv", ".webm")
 
     private val videoOrSource = Regex("<(?:video|source)\\b[^>]*>", RegexOption.IGNORE_CASE)
     private val meta = Regex("<meta\\b[^>]*>", RegexOption.IGNORE_CASE)
@@ -76,7 +79,7 @@ object PageMediaExtractor {
         val path = url.substringBefore('?').substringBefore('#').lowercase()
         return when {
             mime == "application/x-mpegurl" || mime == "application/vnd.apple.mpegurl" || path.endsWith(".m3u8") -> DeclaredMediaKind.Hls
-            mime == "video/mp4" || path.endsWith(".mp4") -> DeclaredMediaKind.Mp4
+            mime in fileTypes || fileExtensions.any { path.endsWith(it) } -> DeclaredMediaKind.File
             else -> DeclaredMediaKind.Other
         }
     }

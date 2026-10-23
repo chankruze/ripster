@@ -12,12 +12,16 @@ enum class ManifestKind {
 
     /** A single media playlist: one quality, listed segment by segment. */
     Media,
+
+    /** A plain media file (MP4, MKV, WebM): downloaded and saved as is. See [ResolvedSource.file]. */
+    DirectFile,
 }
 
 /** What inspection learned from the media playlist that would be downloaded. */
 data class MediaDetails(
-    val durationSeconds: Double,
-    val segmentCount: Int,
+    /** Null for a direct file: its duration is only known once it's downloaded. */
+    val durationSeconds: Double?,
+    val segmentCount: Int?,
     val container: SegmentContainer,
     val encryption: HlsEncryption,
 )
@@ -45,6 +49,8 @@ data class ResolvedSource(
     val details: MediaDetails,
     /** Set when [inputUrl] is a web page that declared this manifest; null for a direct link. */
     val foundOnPage: PageOrigin? = null,
+    /** Set for [ManifestKind.DirectFile]. */
+    val file: DirectFileInfo? = null,
 ) {
     val defaultSelection: MediaSelection get() = selectionFor(defaultVariantIndex?.let(variants::getOrNull))
 

@@ -26,10 +26,23 @@ import kotlinx.coroutines.runInterruptible
  */
 internal class AndroidHttpClient(private val ioDispatcher: CoroutineDispatcher) : HttpClient {
 
-    override suspend fun get(url: String, maxBytes: Int): HttpResponse = runInterruptible(ioDispatcher) {
+    override suspend fun get(url: String, maxBytes: Int): HttpResponse = request(url, maxBytes, probe = false)
+
+    override suspend fun probe(url: String, bytes: Int): HttpResponse = request(url, bytes, probe = true)
+
+    /**
+     * A GET following validated redirects. With [probe], only the first [maxBytes] are asked for
+     * (`Range`) and read (servers may ignore the range), and the total size is reported.
+     */
+    private suspend fun request(url: String, maxBytes: Int, probe: Boolean): HttpResponse = runInterruptible(ioDispatcher) {
         var current = url
         repeat(MAX_REDIRECTS + 1) {
             val connection = open(current)
+            if (probe) {
+                connection.setRequestProperty("Range", "bytes=0-${maxBytes - 1}")
+                // Byte offsets must refer to the file itself, not a compressed transfer.
+                connection.setRequestProperty("Accept-Encoding", "identity")
+            }
             try {
                 val code = connection.responseCode
                 if (code in 300..399 && code != HttpURLConnection.HTTP_NOT_MODIFIED) {
@@ -41,8 +54,12 @@ internal class AndroidHttpClient(private val ioDispatcher: CoroutineDispatcher) 
                     }
                     return@repeat
                 }
-                val body = if (code in 200..299) connection.inputStream.use { it.readLimited(maxBytes) } else ByteArray(0)
-                return@runInterruptible HttpResponse(current, code, connection.contentType, body)
+                val body = when {
+                    code !in 200..299 -> ByteArray(0)
+                    probe -> connection.inputStream.use { it.readUpTo(maxBytes) }
+                    else -> connection.inputStream.use { it.readLimited(maxBytes) }
+                }
+                return@runInterruptible HttpResponse(current, code, connection.contentType, body, totalBytes(connection, code))
             } catch (e: IOException) {
                 throw MediaException(MediaError.Network(e.toNetworkProblem()), e)
             } finally {
@@ -67,6 +84,24 @@ internal class AndroidHttpClient(private val ioDispatcher: CoroutineDispatcher) 
             setRequestProperty("User-Agent", USER_AGENT)
             setRequestProperty("Accept", "application/vnd.apple.mpegurl, application/x-mpegurl, */*;q=0.5")
         }
+    }
+
+    /** `Content-Range: bytes 0-63/123456` for a partial response, else the full `Content-Length`. */
+    private fun totalBytes(connection: HttpsURLConnection, code: Int): Long? = when (code) {
+        HttpURLConnection.HTTP_PARTIAL -> connection.getHeaderField("Content-Range")?.substringAfterLast('/')?.toLongOrNull()
+        else -> connection.contentLengthLong.takeIf { it >= 0 }
+    }
+
+    /** Reads at most [count] bytes and stops, without failing on a longer stream. */
+    private fun InputStream.readUpTo(count: Int): ByteArray {
+        val buffer = ByteArray(count)
+        var filled = 0
+        while (filled < count) {
+            val read = read(buffer, filled, count - filled)
+            if (read < 0) break
+            filled += read
+        }
+        return buffer.copyOf(filled)
     }
 
     private fun InputStream.readLimited(maxBytes: Int): ByteArray {

@@ -7,13 +7,14 @@ import android.provider.DocumentsContract
 import `in`.geekofia.ripster.core.download.OutputFile
 import `in`.geekofia.ripster.core.export.FileNames
 import `in`.geekofia.ripster.core.export.OutputFolder
+import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.MediaException
 import java.io.File
 import java.io.IOException
 
 /**
- * Where exported MP4s go. Exports are written to a partial file first and only published once
+ * Where finished files go (MP4 exports, and direct files in their own container). Exports are written to a partial file first and only published once
  * validated, so a half-written file never appears under its final name.
  *
  * - No folder chosen: the app's external files `Movies` directory (no permission needed on any
@@ -32,14 +33,18 @@ internal class OutputPublisher(private val context: Context) {
         get() = File(appDirectory, ".partial").also { it.mkdirs() }
 
     /** A fresh partial file for [jobId]. Exports run one at a time, so any other partial is stale. */
-    fun newPartialFile(jobId: String): File {
+    fun newPartialFile(jobId: String, container: FileContainer): File {
         partialDirectory.listFiles()?.forEach { it.delete() }
-        return File(partialDirectory, "$jobId.mp4")
+        return File(partialDirectory, "$jobId.${container.extension}")
     }
 
-    fun publish(partial: File, title: String, destination: OutputFolder?): OutputFile {
+    fun publish(partial: File, title: String, destination: OutputFolder?, container: FileContainer): OutputFile {
         val baseName = FileNames.sanitize(title)
-        return if (destination == null) publishToAppStorage(partial, baseName) else publishToFolder(partial, baseName, destination)
+        return if (destination == null) {
+            publishToAppStorage(partial, baseName, container)
+        } else {
+            publishToFolder(partial, baseName, destination, container)
+        }
     }
 
     fun discard(output: OutputFile) {
@@ -50,9 +55,9 @@ internal class OutputPublisher(private val context: Context) {
         }
     }
 
-    private fun publishToAppStorage(partial: File, baseName: String): OutputFile {
+    private fun publishToAppStorage(partial: File, baseName: String, container: FileContainer): OutputFile {
         val directory = appDirectory
-        val name = FileNames.unique(baseName, "mp4") { File(directory, it).exists() }
+        val name = FileNames.unique(baseName, container.extension) { File(directory, it).exists() }
         val target = File(directory, name)
         try {
             // Same directory tree, so this is normally a rename; copy if the platform refuses.
@@ -64,15 +69,15 @@ internal class OutputPublisher(private val context: Context) {
             target.delete()
             throw e
         }
-        return OutputFile(Uri.fromFile(target).toString(), name, target.length(), APP_STORAGE_LABEL)
+        return OutputFile(Uri.fromFile(target).toString(), name, target.length(), APP_STORAGE_LABEL, container.mimeType)
     }
 
-    private fun publishToFolder(partial: File, baseName: String, folder: OutputFolder): OutputFile {
+    private fun publishToFolder(partial: File, baseName: String, folder: OutputFolder, container: FileContainer): OutputFile {
         val resolver = context.contentResolver
         val tree = Uri.parse(folder.uri)
         val document = try {
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-            DocumentsContract.createDocument(resolver, parent, MIME_TYPE, "$baseName.mp4")
+            DocumentsContract.createDocument(resolver, parent, container.mimeType, "$baseName.${container.extension}")
         } catch (e: SecurityException) {
             throw MediaException(MediaError.OutputUnavailable("Ripster no longer has access to \"${folder.name}\"."), e)
         } catch (e: Exception) {
@@ -88,8 +93,8 @@ internal class OutputPublisher(private val context: Context) {
         } finally {
             partial.delete()
         }
-        val name = displayName(document) ?: "$baseName.mp4"
-        return OutputFile(document.toString(), name, sizeOf(document), folder.name)
+        val name = displayName(document) ?: "$baseName.${container.extension}"
+        return OutputFile(document.toString(), name, sizeOf(document), folder.name, container.mimeType)
     }
 
     private fun displayName(document: Uri): String? =
@@ -101,7 +106,6 @@ internal class OutputPublisher(private val context: Context) {
             ?.use { if (it.moveToFirst()) it.getLong(0) else 0L } ?: 0L
 
     companion object {
-        const val MIME_TYPE = "video/mp4"
         const val APP_STORAGE_LABEL = "App storage"
     }
 }

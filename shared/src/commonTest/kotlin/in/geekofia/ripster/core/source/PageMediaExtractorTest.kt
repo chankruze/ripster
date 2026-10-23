@@ -20,7 +20,7 @@ class PageMediaExtractorTest {
         assertEquals(
             listOf(
                 DeclaredMedia("https://videos.example/media/clip-42/master.m3u8", DeclaredMediaKind.Hls, MediaDeclaration.VideoTag),
-                DeclaredMedia("https://cdn.example/clip.mp4", DeclaredMediaKind.Mp4, MediaDeclaration.VideoTag),
+                DeclaredMedia("https://cdn.example/clip.mp4", DeclaredMediaKind.File, MediaDeclaration.VideoTag),
                 DeclaredMedia("https://videos.example/watch/stream/index", DeclaredMediaKind.Hls, MediaDeclaration.VideoTag),
             ),
             media,
@@ -104,7 +104,18 @@ class PageMediaExtractorTest {
     }
 
     @Test
-    fun classifiesUnknownTypesAsOther() {
-        assertEquals(DeclaredMediaKind.Other, extract("<video src=\"https://cdn.example/clip.webm\"></video>").media.single().kind)
+    fun classifiesFilesByTypeOrNameAndTheRestAsOther() {
+        val media = extract(
+            """
+            <video src="https://cdn.example/a.webm"></video>
+            <video src="https://cdn.example/b.MKV?x=1"></video>
+            <video><source src="https://cdn.example/c" type="video/x-matroska"></video>
+            <video src="https://cdn.example/d.avi"></video>
+            """.trimIndent(),
+        ).media
+        assertEquals(
+            listOf(DeclaredMediaKind.File, DeclaredMediaKind.File, DeclaredMediaKind.File, DeclaredMediaKind.Other),
+            media.map { it.kind },
+        )
     }
 }

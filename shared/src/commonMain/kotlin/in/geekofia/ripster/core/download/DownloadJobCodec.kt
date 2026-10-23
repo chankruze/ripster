@@ -1,5 +1,6 @@
 package `in`.geekofia.ripster.core.download
 
+import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.NetworkProblem
 import `in`.geekofia.ripster.core.source.UrlProblem
@@ -11,11 +12,15 @@ import `in`.geekofia.ripster.core.source.UrlProblem
  * loses at most that job, never the app.
  */
 internal object DownloadJobCodec {
-    private const val VERSION = "q1"
+    private const val VERSION = "q2"
+
+    /** Before direct files: same layout without the file container and output MIME type. */
+    private const val VERSION_1 = "q1"
+    private const val FIELDS_V1 = 23
     private const val RECORD = '\u001E'
     private const val FIELD = '\u001F'
     private const val SUB = '\u001D'
-    private const val FIELDS = 23
+    private const val FIELDS = 25
 
     fun encode(jobs: List<DownloadJob>): String = buildString {
         append(VERSION)
@@ -27,11 +32,16 @@ internal object DownloadJobCodec {
 
     fun decode(encoded: String?): List<DownloadJob> {
         val records = encoded?.split(RECORD) ?: return emptyList()
-        if (records.firstOrNull() != VERSION) return emptyList()
+        val fieldCount = when (records.firstOrNull()) {
+            VERSION -> FIELDS
+            VERSION_1 -> FIELDS_V1
+            else -> return emptyList()
+        }
         return records.drop(1).mapNotNull { record ->
             val f = record.split(FIELD).map { unescape(it) ?: return@mapNotNull null }
-            if (f.size != FIELDS) return@mapNotNull null
-            runCatching { job(f) }.getOrNull()
+            if (f.size != fieldCount) return@mapNotNull null
+            // Version 1 jobs were all HLS, exported to MP4: the defaults for the two new fields.
+            runCatching { job(f + List(FIELDS - f.size) { "" }) }.getOrNull()
         }
     }
 
@@ -59,12 +69,20 @@ internal object DownloadJobCodec {
         j.createdAtMillis.toString(),
         j.updatedAtMillis.toString(),
         "", // Reserved for request configuration (headers) in a later version.
+        j.file?.name.orEmpty(),
+        j.output?.mimeType.orEmpty(),
     )
 
     private fun job(f: List<String>): DownloadJob? {
         val state = DownloadState.entries.firstOrNull { it.name == f[11] } ?: return null
         val output = if (f[15].isNotEmpty()) {
-            OutputFile(uri = f[15], displayName = f[16], sizeBytes = f[17].toLongOrNull() ?: 0, location = f[18])
+            OutputFile(
+                uri = f[15],
+                displayName = f[16],
+                sizeBytes = f[17].toLongOrNull() ?: 0,
+                location = f[18],
+                mimeType = f[24].ifEmpty { FileContainer.Mp4.mimeType },
+            )
         } else {
             null
         }
@@ -74,6 +92,7 @@ internal object DownloadJobCodec {
             sourceUrl = f[2],
             manifestUrl = f[3],
             isSample = f[4] == "1",
+            file = if (f[23].isEmpty()) null else FileContainer.entries.firstOrNull { it.name == f[23] } ?: return null,
             selection = JobSelection(
                 variantUrl = f[5].ifEmpty { null },
                 audioUrl = f[6].ifEmpty { null },
@@ -97,7 +116,7 @@ internal object DownloadJobCodec {
         is MediaError.InvalidUrl -> listOf("url", e.problem.name)
         MediaError.WebPage -> listOf("webpage")
         MediaError.NoMediaOnPage -> listOf("nopagemedia")
-        is MediaError.PageMediaNotHls -> listOf("pagenothls", bool(e.hasMp4))
+        MediaError.UnsupportedPageMedia -> listOf("pagemedia")
         is MediaError.NotHls -> listOf("nothls", e.contentType.orEmpty())
         MediaError.LiveStream -> listOf("live")
         MediaError.DrmProtected -> listOf("drm")
@@ -121,7 +140,8 @@ internal object DownloadJobCodec {
             "url" -> UrlProblem.entries.firstOrNull { it.name == arg(1) }?.let(MediaError::InvalidUrl)
             "webpage" -> MediaError.WebPage
             "nopagemedia" -> MediaError.NoMediaOnPage
-            "pagenothls" -> MediaError.PageMediaNotHls(arg(1) == "1")
+            // "pagenothls" was written before direct files were supported.
+            "pagemedia", "pagenothls" -> MediaError.UnsupportedPageMedia
             "nothls" -> MediaError.NotHls(arg(1).ifEmpty { null })
             "live" -> MediaError.LiveStream
             "drm" -> MediaError.DrmProtected

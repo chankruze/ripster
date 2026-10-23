@@ -16,8 +16,9 @@ import `in`.geekofia.ripster.core.source.SourceUrl
 import `in`.geekofia.ripster.platform.HttpClient
 
 /**
- * Builds the Media3 request for a job: the manifest plus stream keys for exactly the chosen
- * variant and its audio rendition, so only that quality is downloaded.
+ * Builds the Media3 request for a job: for HLS, the manifest plus stream keys for exactly the
+ * chosen variant and its audio rendition, so only that quality is downloaded; for a direct file,
+ * just its URL.
  *
  * The keys are indices into Media3's own parse of the playlist (it orders and de-duplicates
  * differently from Ripster's portable parser), so the manifest is parsed again here with
@@ -27,6 +28,10 @@ import `in`.geekofia.ripster.platform.HttpClient
 internal class DownloadRequestFactory(private val http: HttpClient) {
 
     suspend fun build(job: DownloadJob): DownloadRequest {
+        // A direct file: Media3 picks its progressive downloader from the MIME type (no stream keys).
+        job.file?.let { container ->
+            return DownloadRequest.Builder(job.id, Uri.parse(job.manifestUrl)).setMimeType(container.mimeType).build()
+        }
         val builder = DownloadRequest.Builder(job.id, Uri.parse(job.manifestUrl)).setMimeType(MimeTypes.APPLICATION_M3U8)
         val variantUrl = job.selection.variantUrl ?: return builder.build() // A single media playlist.
 

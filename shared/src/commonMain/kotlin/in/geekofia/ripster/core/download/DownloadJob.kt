@@ -1,5 +1,6 @@
 package `in`.geekofia.ripster.core.download
 
+import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 
 enum class DownloadState {
@@ -32,6 +33,7 @@ data class OutputFile(
     val sizeBytes: Long,
     /** Where it was saved, for display (e.g. "App storage" or the chosen folder's name). */
     val location: String,
+    val mimeType: String = FileContainer.Mp4.mimeType,
 )
 
 /**
@@ -46,6 +48,8 @@ data class DownloadJob(
     /** The manifest URL after redirects, from the latest inspection. */
     val manifestUrl: String,
     val isSample: Boolean,
+    /** Set for a direct file, which is saved in this container as is; null for HLS (exported to MP4). */
+    val file: FileContainer? = null,
     val selection: JobSelection,
     val durationSeconds: Double?,
     val state: DownloadState,

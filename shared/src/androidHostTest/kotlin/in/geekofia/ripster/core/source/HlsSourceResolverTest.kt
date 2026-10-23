@@ -22,6 +22,8 @@ class HlsSourceResolverTest {
             requested += url
             return responses[url]?.invoke() ?: HttpResponse(url, 404, "text/plain", ByteArray(0))
         }
+
+        override suspend fun probe(url: String, bytes: Int): HttpResponse = get(url, bytes)
     }
 
     private val http = FakeHttp()

@@ -3,6 +3,7 @@ package `in`.geekofia.ripster.core.download
 import `in`.geekofia.ripster.core.export.FileNames
 import `in`.geekofia.ripster.core.export.MediaExporter
 import `in`.geekofia.ripster.core.export.OutputFolder
+import `in`.geekofia.ripster.core.source.ManifestKind
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.MediaException
 import `in`.geekofia.ripster.core.source.MediaSelection
@@ -99,6 +100,7 @@ class DownloadCoordinator(
                 sourceUrl = source.inputUrl,
                 manifestUrl = source.manifestUrl,
                 isSample = SampleSources.find(source.inputUrl) != null,
+                file = source.file?.container,
                 selection = selection.toJobSelection(),
                 durationSeconds = source.details.durationSeconds,
                 state = DownloadState.Queued,
@@ -223,6 +225,16 @@ class DownloadCoordinator(
             }
             is SourceResolution.Supported -> resolution.source
         }
+        // A retry must find the same kind of media: a job doesn't switch between HLS and a file.
+        if (job.file != source.file?.container) {
+            transition(id, JobEvent.Fail(MediaError.Parse("the link no longer points to the same media")))
+            return
+        }
+        if (source.kind == ManifestKind.DirectFile) {
+            transition(id, JobEvent.Resolved(source.manifestUrl, JobSelection(null, null, null, null, emptyList()), null))
+            startDownload(id, estimatedBytes = source.file?.sizeBytes)
+            return
+        }
         val selection = job.selection
         val variant = if (selection.variantUrl == null) {
             // A media playlist (no variants); if it has become a master since, its default variant.
@@ -237,11 +249,17 @@ class DownloadCoordinator(
         val resolved = source.selectionFor(variant).toJobSelection()
         transition(id, JobEvent.Resolved(source.manifestUrl, resolved, source.details.durationSeconds))
 
-        storageShortfall(resolved.bandwidth, source.details.durationSeconds)?.let { error ->
+        val bandwidth = resolved.bandwidth
+        val duration = source.details.durationSeconds
+        startDownload(id, estimatedBytes = if (bandwidth != null && duration != null) (bandwidth / 8.0 * duration).toLong() else null)
+    }
+
+    /** Checks free space for [estimatedBytes] (when known), then hands the resolved job to the engine. */
+    private suspend fun startDownload(id: String, estimatedBytes: Long?) {
+        storageShortfall(estimatedBytes)?.let { error ->
             transition(id, JobEvent.Fail(error))
             return
         }
-
         val ready = repository.get(id)?.takeIf { it.state == DownloadState.Resolving } ?: return
         engine.enqueue(ready)
         if (transition(id, JobEvent.StartDownloading) == null) {
@@ -319,9 +337,8 @@ class DownloadCoordinator(
      * Skipped when the size or the free space is unknown; a full disk mid-download is reported by
      * the engine instead.
      */
-    private fun storageShortfall(bandwidth: Long?, durationSeconds: Double?): MediaError? {
-        if (bandwidth == null || durationSeconds == null) return null
-        val estimate = (bandwidth / 8.0 * durationSeconds).toLong()
+    private fun storageShortfall(estimatedBytes: Long?): MediaError? {
+        val estimate = estimatedBytes ?: return null
         val required = estimate * 2 + STORAGE_HEADROOM_BYTES
         val available = storage.availableBytes() ?: return null
         return if (available < required) MediaError.InsufficientStorage(required, available) else null

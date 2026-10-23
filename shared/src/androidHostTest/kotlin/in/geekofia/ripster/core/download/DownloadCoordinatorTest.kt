@@ -6,6 +6,13 @@ import `in`.geekofia.ripster.core.download.DownloadState.Downloading
 import `in`.geekofia.ripster.core.download.DownloadState.Exporting
 import `in`.geekofia.ripster.core.download.DownloadState.Failed
 import `in`.geekofia.ripster.core.export.OutputFolder
+import `in`.geekofia.ripster.core.hls.HlsEncryption
+import `in`.geekofia.ripster.core.hls.SegmentContainer
+import `in`.geekofia.ripster.core.source.DirectFileInfo
+import `in`.geekofia.ripster.core.source.FileContainer
+import `in`.geekofia.ripster.core.source.ManifestKind
+import `in`.geekofia.ripster.core.source.MediaDetails
+import `in`.geekofia.ripster.core.source.ResolvedSource
 import `in`.geekofia.ripster.core.source.ErrorCategory
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.MediaException
@@ -124,6 +131,52 @@ class DownloadCoordinatorTest {
         val resolved = downloads.awaitState(job.id, Downloading)
         assertEquals(listOf("avc1.640020", "ac-3"), resolved.selection.codecs)
         assertEquals("https://cdn.example/show/a2/prog_index.m3u8", resolved.selection.audioUrl)
+    }
+
+    private val mkvSource = ResolvedSource(
+        inputUrl = "https://cdn.example/files/clip.mkv",
+        manifestUrl = "https://cdn.example/files/clip.mkv",
+        kind = ManifestKind.DirectFile,
+        variants = emptyList(),
+        audioRenditions = emptyList(),
+        defaultVariantIndex = null,
+        details = MediaDetails(null, null, SegmentContainer.Other, HlsEncryption.None),
+        file = DirectFileInfo(FileContainer.Matroska, sizeBytes = 2L * 1024 * 1024 * 1024),
+    )
+
+    @Test
+    fun aDirectFileIsDownloadedAndSavedInItsOwnContainer() = runBlocking<Unit> {
+        resolver.result = SourceResolution.Supported(mkvSource)
+        val downloads = coordinator()
+        eventually(value = { downloads.jobs.value }) { true }
+        val job = assertIs<EnqueueResult.Added>(downloads.enqueue(mkvSource, mkvSource.defaultSelection)).job
+        assertEquals(FileContainer.Matroska, job.file)
+        assertEquals("clip", job.title)
+
+        downloads.awaitState(job.id, Downloading)
+        engine.set(job.id, EngineStatus.Completed(1))
+        downloads.awaitState(job.id, Completed)
+        assertEquals(listOf(job.id), exporter.exported)
+    }
+
+    @Test
+    fun aDirectFileTooBigForTheFreeSpaceFails() = runBlocking<Unit> {
+        freeBytes = 3L * 1024 * 1024 * 1024 // Less than twice the 2 GB file.
+        resolver.result = SourceResolution.Supported(mkvSource)
+        val downloads = coordinator()
+        eventually(value = { downloads.jobs.value }) { true }
+        val job = assertIs<EnqueueResult.Added>(downloads.enqueue(mkvSource, mkvSource.defaultSelection)).job
+        assertIs<MediaError.InsufficientStorage>(downloads.awaitState(job.id, Failed).error)
+        assertEquals(emptyList(), engine.enqueued)
+    }
+
+    @Test
+    fun aJobDoesNotSwitchBetweenHlsAndAFileOnRetry() = runBlocking<Unit> {
+        resolver.result = SourceResolution.Supported(mkvSource) // The HLS job's URL now serves a file.
+        val downloads = coordinator()
+        val job = downloads.add()
+        assertIs<MediaError.Parse>(downloads.awaitState(job.id, Failed).error)
+        assertEquals(emptyList(), engine.enqueued)
     }
 
     @Test

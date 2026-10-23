@@ -51,6 +51,7 @@ import `in`.geekofia.ripster.core.source.MediaSourceResolver
 import `in`.geekofia.ripster.core.source.SampleSource
 import `in`.geekofia.ripster.core.source.SampleSources
 import `in`.geekofia.ripster.core.source.SourceUrl
+import `in`.geekofia.ripster.core.source.formatBytes
 import `in`.geekofia.ripster.core.source.message
 import `in`.geekofia.ripster.platform.ClipboardReader
 import `in`.geekofia.ripster.platform.NotificationPermission
@@ -255,15 +256,28 @@ private fun SourceCard(ready: Inspection.Ready) {
             origin.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
         Text(SourceUrl.displayForm(source.manifestUrl), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        val kind = when (source.kind) {
-            ManifestKind.Multivariant -> "Adaptive playlist · ${source.variants.size} variants"
-            ManifestKind.Media -> "Single media playlist"
+        val file = source.file
+        if (file != null) {
+            Text(
+                "Direct ${file.container.label} file" + file.sizeBytes?.let { " · ${formatBytes(it)}" }.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            val kind = if (source.kind == ManifestKind.Multivariant) {
+                "Adaptive playlist · ${source.variants.size} variants"
+            } else {
+                "Single media playlist"
+            }
+            Text(kind, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                listOfNotNull(
+                    details.durationSeconds?.let(::formatDuration),
+                    details.segmentCount?.let { "$it segments" },
+                    details.container.label(),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
-        Text(kind, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            "${formatDuration(details.durationSeconds)} · ${details.segmentCount} segments · ${details.container.label()}",
-            style = MaterialTheme.typography.bodyMedium,
-        )
         if (details.encryption == HlsEncryption.Aes128) {
             Text("AES-128 encrypted segments (clear key)", style = MaterialTheme.typography.bodySmall)
         }
@@ -305,9 +319,15 @@ private fun OutputCard(
     onUseAppStorage: () -> Unit,
 ) {
     val selection = ready.selection
+    val file = ready.source.file
     SectionCard(title = "Output") {
-        Text("Format: MP4", style = MaterialTheme.typography.bodyLarge)
-        Text(selection.outlook.description(), style = MaterialTheme.typography.bodySmall)
+        if (file != null) {
+            Text("Format: ${file.container.label}", style = MaterialTheme.typography.bodyLarge)
+            Text("Saved as the original file, without conversion.", style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text("Format: MP4", style = MaterialTheme.typography.bodyLarge)
+            Text(selection.outlook.description(), style = MaterialTheme.typography.bodySmall)
+        }
         selection.audio?.let { audio ->
             Text("Audio: ${audio.name}${audio.channels?.let { " · $it ch" }.orEmpty()}", style = MaterialTheme.typography.bodySmall)
         }

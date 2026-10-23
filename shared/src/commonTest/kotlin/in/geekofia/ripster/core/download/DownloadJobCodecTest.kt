@@ -1,5 +1,6 @@
 package `in`.geekofia.ripster.core.download
 
+import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.NetworkProblem
 import `in`.geekofia.ripster.core.source.UrlProblem
@@ -25,6 +26,27 @@ class DownloadJobCodecTest {
     }
 
     @Test
+    fun roundTripsDirectFileJobs() {
+        val mkv = testJob(id = "f", state = DownloadState.Completed, variantUrl = null).copy(
+            file = FileContainer.Matroska,
+            output = testOutput.copy(displayName = "clip.mkv", mimeType = "video/x-matroska"),
+        )
+        assertEquals(listOf(mkv), roundTrip(listOf(mkv)))
+    }
+
+    @Test
+    fun readsQueuesSavedBeforeDirectFiles() {
+        // A version 1 record: 23 fields, no file container or output MIME type.
+        val job = testJob(id = "old", state = DownloadState.Completed).copy(output = testOutput)
+        val v2 = DownloadJobCodec.encode(listOf(job))
+        val v1 = "q1" + v2.removePrefix("q2").split('\u001F').dropLast(2).joinToString("\u001F")
+        val decoded = DownloadJobCodec.decode(v1).single()
+        assertEquals(null, decoded.file)
+        assertEquals("video/mp4", decoded.output?.mimeType)
+        assertEquals(job, decoded)
+    }
+
+    @Test
     fun survivesAwkwardText() {
         val awkward = testJob().copy(
             title = "Back\\slash \u001E record \u001F field, \"quotes\" & ünïcødé 🎬",
@@ -39,7 +61,7 @@ class DownloadJobCodecTest {
             MediaError.InvalidUrl(UrlProblem.Insecure),
             MediaError.WebPage,
             MediaError.NoMediaOnPage,
-            MediaError.PageMediaNotHls(hasMp4 = true),
+            MediaError.UnsupportedPageMedia,
             MediaError.NotHls("text/plain"),
             MediaError.NotHls(null),
             MediaError.LiveStream,
