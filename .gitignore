@@ -17,3 +17,10 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+# Output of Android Studio's "Generate Signed App Bundle / APK" wizard
+androidApp/release/
+
+# Release signing: never commit the keystore or its credentials (see keystore.properties.example)
+keystore.properties
+*.jks
+*.keystore

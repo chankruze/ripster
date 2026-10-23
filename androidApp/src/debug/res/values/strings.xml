@@ -1,0 +1,4 @@
+<resources>
+    <!-- Overrides src/main for debug builds, so they're easy to tell apart from release in the launcher. -->
+    <string name="app_name">Ripster Debug</string>
+</resources>
