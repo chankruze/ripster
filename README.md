@@ -185,3 +185,40 @@ By unit tests only (138 tests in `commonTest` and `androidHostTest`, run on the 
 
 Not yet tested on a device: exporting an AC-3 / E-AC-3 BipBop variant, MKV and WebM files,
 choosing a SAF output folder, and the minified release build (it's unsigned without a keystore).
+
+## Known limitations
+
+- **HLS:** VOD only; live and event playlists are refused. Export needs codecs the device can
+  handle: H.264/H.265 + AAC remux cleanly, while AC-3 / E-AC-3 audio needs a decoder many phones
+  lack, so those variants may fail with "Can't export to MP4" (shown as a warning before download).
+- **Direct files** are kept in their own container: MKV is not converted to MP4. Their duration is
+  only known after download. If a server ignores range requests, the size can be missing and the
+  storage check is skipped (a full disk is still reported by the engine).
+- **Web pages:** only links a page declares in standard places are used. Pages whose player builds
+  stream URLs in scripts are reported as having no downloadable source.
+- **Requests:** no custom headers, cookies or sign-in; a field is reserved in the queue format.
+- **Background work:** downloads run in Media3's foreground service. Android may refuse to start
+  the export service from the background; the export then continues in the app process without
+  that protection, and restarts after the next launch if the process is killed.
+- **Concurrency:** at most 2 downloads at once and one export at a time.
+- **UI:** thumbnails are read but not displayed (that needs an image-loading library).
+- **Platforms:** Android only. The template has no iOS target yet.
+
+## Next steps
+
+Android:
+
+- Test the untested paths above on a device (AC-3 export, MKV/WebM, SAF folder, signed release).
+- Optional MKV → MP4 conversion with Transformer, where the codecs allow it.
+- Thumbnails in the Download and Queue screens.
+- Instrumentation tests for the exporter and the services.
+
+iOS: everything in `commonMain` (resolvers, parser, queue, coordinator, screens) is shared as is.
+What's needed:
+
+1. Add `iosArm64()` / `iosSimulatorArm64()` targets and a framework to `shared/build.gradle.kts`,
+   plus an Xcode host app (MorseKit's `iosApp` shows the layout).
+2. Implement the platform interfaces in `iosMain`: `HttpClient` (`NSURLSession`), `TextStore` and
+   `KeyValueStore`, clipboard, file actions and folder picking (`UIDocumentPickerViewController`).
+3. A `DownloadEngine` on background `URLSession`s (`AVAssetDownloadURLSession` for HLS), and a
+   `MediaExporter` built on `AVAssetExportSession`, both reporting the same typed errors.
