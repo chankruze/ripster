@@ -25,6 +25,8 @@ class HlsPlaylistParserTest {
         v2/prog_index.m3u8
         #EXT-X-STREAM-INF:BANDWIDTH=2399619,CODECS="avc1.640020,ac-3",RESOLUTION=960x540,AUDIO="aud2"
         v5/prog_index.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=2177116,CODECS="avc1.640020,mp4a.40.2",RESOLUTION=960x540,AUDIO="aud1"
+        v5/prog_index.m3u8
         #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=187492,CODECS="avc1.64002a",RESOLUTION=1920x1080,URI="v7/iframe_index.m3u8"
         #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud1",LANGUAGE="en",NAME="English",AUTOSELECT=YES,DEFAULT=YES,CHANNELS="2",URI="a1/prog_index.m3u8"
         #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud2",LANGUAGE="en",NAME="English, 5.1",DEFAULT=NO,CHANNELS="6",URI="a2/prog_index.m3u8"
@@ -34,8 +36,11 @@ class HlsPlaylistParserTest {
     @Test
     fun readsVariantsWithAttributes() {
         val playlist = assertIs<HlsPlaylist.Multivariant>(parse(multivariant))
-        // The third entry repeats v5's URL and is dropped; the I-frame playlist is not a variant.
-        assertEquals(2, playlist.variants.size)
+        // v5 with AC-3 audio is its own choice (same video URL, other audio group); the exact repeat
+        // of v5 + aud1 is dropped, and the I-frame playlist is not a variant.
+        assertEquals(listOf("aud1", "aud1", "aud2"), playlist.variants.map { it.audioGroupId })
+        assertEquals(listOf("avc1.640020", "ac-3"), playlist.variants[2].codecs)
+        assertEquals(playlist.variants[0].url, playlist.variants[2].url)
         val first = playlist.variants[0]
         assertEquals("https://cdn.example/show/v5/prog_index.m3u8", first.url)
         assertEquals(2177116, first.bandwidth)

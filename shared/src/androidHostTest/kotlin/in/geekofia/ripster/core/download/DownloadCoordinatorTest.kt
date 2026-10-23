@@ -106,6 +106,27 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun theSameVideoWithOtherAudioIsNotADuplicateAndIsMatchedAgainOnRetry() = runBlocking<Unit> {
+        val ac3 = variant540.copy(codecs = listOf("avc1.640020", "ac-3"), audioGroupId = "aud2")
+        val source = testSource.copy(
+            variants = listOf(variant540, ac3),
+            audioRenditions = testSource.audioRenditions +
+                testSource.audioRenditions[0].copy(groupId = "aud2", name = "Surround", url = "https://cdn.example/show/a2/prog_index.m3u8"),
+        )
+        resolver.result = SourceResolution.Supported(source)
+        val downloads = coordinator()
+        eventually(value = { downloads.jobs.value }) { true }
+        assertIs<EnqueueResult.Added>(downloads.enqueue(source, source.selectionFor(variant540)))
+        val job = assertIs<EnqueueResult.Added>(downloads.enqueue(source, source.selectionFor(ac3))).job
+        assertEquals("https://cdn.example/show/a2/prog_index.m3u8", job.selection.audioUrl)
+
+        // Re-inspection on the way to the engine keeps the AC-3 choice, not the AAC one with the same URL.
+        val resolved = downloads.awaitState(job.id, Downloading)
+        assertEquals(listOf("avc1.640020", "ac-3"), resolved.selection.codecs)
+        assertEquals("https://cdn.example/show/a2/prog_index.m3u8", resolved.selection.audioUrl)
+    }
+
+    @Test
     fun anExpiredLinkFailsWhileResolvingAndIsNotDownloaded() = runBlocking<Unit> {
         resolver.result = SourceResolution.Rejected(MediaError.HttpStatus(403, signedUrl = true))
         val downloads = coordinator()

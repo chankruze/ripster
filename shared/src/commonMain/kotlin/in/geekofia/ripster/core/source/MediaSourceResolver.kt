@@ -56,12 +56,14 @@ data class ResolvedSource(
     }
 
     /**
-     * The variant matching a previous choice: the same URL, else (when URLs carry fresh tokens)
-     * the same resolution, codecs and bandwidth. Null if the stream changed beyond recognition.
+     * The variant matching a previous choice: the same URL and codecs (variants can share a video
+     * URL and differ only in audio), else (when URLs carry fresh tokens) the same resolution,
+     * codecs and bandwidth. Null if the stream changed beyond recognition.
      */
     fun findVariant(url: String?, bandwidth: Long?, resolution: String?, codecs: List<String>): HlsVariant? {
         if (url == null) return null
-        return variants.firstOrNull { it.url == url }
+        return variants.firstOrNull { it.url == url && it.codecs == codecs }
+            ?: variants.firstOrNull { it.url == url && codecs.isEmpty() }
             ?: variants.firstOrNull {
                 it.bandwidth == bandwidth && it.resolution?.toString() == resolution && it.codecs == codecs
             }

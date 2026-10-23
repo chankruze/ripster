@@ -58,8 +58,10 @@ object HlsPlaylistParser {
                     pending = null
                     val bandwidth = a["BANDWIDTH"]?.toLongOrNull() ?: continue
                     val url = SourceUrl.resolve(baseUrl, line)
-                    // Same URL twice (e.g. alternate pathways) is the same media for download purposes.
-                    if (variants.any { it.url == url }) continue
+                    val audioGroup = a["AUDIO"]
+                    // The same video with another audio group (e.g. AAC vs AC-3) is a separate choice;
+                    // only an exact repeat (e.g. an alternate pathway) is the same media.
+                    if (variants.any { it.url == url && it.audioGroupId == audioGroup }) continue
                     variants += HlsVariant(
                         url = url,
                         bandwidth = bandwidth,
@@ -67,7 +69,7 @@ object HlsPlaylistParser {
                         resolution = a["RESOLUTION"]?.let(::resolution),
                         frameRate = a["FRAME-RATE"]?.toDoubleOrNull(),
                         codecs = a["CODECS"]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
-                        audioGroupId = a["AUDIO"],
+                        audioGroupId = audioGroup,
                     )
                 }
             }

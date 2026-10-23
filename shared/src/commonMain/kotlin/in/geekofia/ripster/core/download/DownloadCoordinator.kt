@@ -86,9 +86,10 @@ class DownloadCoordinator(
      */
     suspend fun enqueue(source: ResolvedSource, selection: MediaSelection): EnqueueResult {
         val result = lock.withLock {
-            val variantUrl = selection.variant?.url
+            val wanted = selection.toJobSelection()
             repository.jobs.value.firstOrNull {
-                it.state.isActive && it.sourceUrl == source.inputUrl && it.selection.variantUrl == variantUrl
+                it.state.isActive && it.sourceUrl == source.inputUrl &&
+                    it.selection.variantUrl == wanted.variantUrl && it.selection.audioUrl == wanted.audioUrl
             }?.let { return@withLock EnqueueResult.AlreadyQueued(it) }
 
             val now = nowMillis()
