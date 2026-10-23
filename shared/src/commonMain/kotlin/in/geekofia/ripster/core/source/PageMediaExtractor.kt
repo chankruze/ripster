@@ -21,6 +21,19 @@ data class PageMedia(
 )
 
 /**
+ * Public metadata a page declares about itself. Every field is optional: missing or malformed
+ * metadata is never fatal. URLs are absolute and https.
+ */
+data class PageMetadata(
+    val title: String?,
+    val thumbnailUrl: String?,
+    val durationSeconds: Double?,
+    val canonicalUrl: String?,
+    /** Declares itself a video page (`og:type` `video.*`, or a schema.org `VideoObject`). */
+    val isVideoPage: Boolean,
+)
+
+/**
  * Reads the media links a web page *declares* for others to use, in standard places only:
  * `<video src>` / `<source src type>`, Open Graph `og:video*` tags, and schema.org `VideoObject`
  * `contentUrl` in JSON-LD. Scripts are never run and nothing is reverse-engineered: pages whose
@@ -72,6 +85,48 @@ object PageMediaExtractor {
         val title = metaContent("og:title").firstOrNull()?.takeIf { it.isNotBlank() }
             ?: titleTag.find(html)?.groupValues?.get(1)
         return PageMedia(title?.let(::decodeEntities)?.trim()?.takeIf { it.isNotEmpty() }, found.values.toList())
+    }
+
+    private val canonicalLink = Regex("<link\\b[^>]*rel\\s*=\\s*[\"']canonical[\"'][^>]*>", RegexOption.IGNORE_CASE)
+    private fun jsonString(key: String) = Regex("\"$key\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.){1,2048})\"")
+    private val isoDuration = Regex("^P(?:(\\d+(?:\\.\\d+)?)D)?T?(?:(\\d+(?:\\.\\d+)?)H)?(?:(\\d+(?:\\.\\d+)?)M)?(?:(\\d+(?:\\.\\d+)?)S)?$", RegexOption.IGNORE_CASE)
+
+    /**
+     * Title, thumbnail, duration and canonical URL, each from the first source that has it:
+     * Open Graph, then schema.org `VideoObject` (JSON-LD), then plain HTML (`<title>`, canonical link).
+     */
+    fun metadata(html: String, pageUrl: String): PageMetadata {
+        val metas = meta.findAll(html).map { attributes(it.value) }.toList()
+        fun metaContent(vararg names: String) = names.firstNotNullOfOrNull { name ->
+            metas.firstOrNull { (it["property"] ?: it["name"] ?: it["itemprop"])?.lowercase() == name }?.get("content")
+                ?.let(::decodeEntities)?.trim()?.takeIf { it.isNotEmpty() }
+        }
+        val videoObjects = jsonLd.findAll(html).map { it.groupValues[1] }.filter { "VideoObject" in it }.toList()
+        fun ld(key: String) = videoObjects.firstNotNullOfOrNull { block ->
+            jsonString(key).find(block)?.groupValues?.get(1)?.let(::unescapeJson)?.trim()?.takeIf { it.isNotEmpty() }
+        }
+        fun url(raw: String?) = raw?.let { (SourceUrl.check(SourceUrl.resolve(pageUrl, decodeEntities(it))) as? UrlCheck.Valid)?.url }
+
+        val title = metaContent("og:title", "twitter:title") ?: ld("name")
+            ?: titleTag.find(html)?.groupValues?.get(1)?.let(::decodeEntities)?.trim()?.takeIf { it.isNotEmpty() }
+        val duration = metaContent("og:video:duration", "video:duration")?.toDoubleOrNull()?.takeIf { it > 0 }
+            ?: (metaContent("duration") ?: ld("duration"))?.let(::parseIsoDuration)
+        return PageMetadata(
+            title = title,
+            thumbnailUrl = url(metaContent("og:image:secure_url", "og:image", "twitter:image")) ?: url(ld("thumbnailUrl")),
+            durationSeconds = duration,
+            canonicalUrl = url(canonicalLink.find(html)?.let { attributes(it.value)["href"] }) ?: url(metaContent("og:url")),
+            isVideoPage = metaContent("og:type")?.lowercase()?.startsWith("video") == true || videoObjects.isNotEmpty(),
+        )
+    }
+
+    /** `PT12M34S`, `PT1H2M`, `P0DT0H5M7.5S` → seconds; null when not an ISO 8601 duration. */
+    internal fun parseIsoDuration(value: String): Double? {
+        val m = isoDuration.matchEntire(value.trim()) ?: return null
+        val (d, h, min, s) = m.destructured
+        if (listOf(d, h, min, s).all { it.isEmpty() }) return null
+        fun part(text: String) = text.toDoubleOrNull() ?: 0.0
+        return (part(d) * 86_400 + part(h) * 3_600 + part(min) * 60 + part(s)).takeIf { it > 0 }
     }
 
     private fun kindOf(url: String, type: String?): DeclaredMediaKind {

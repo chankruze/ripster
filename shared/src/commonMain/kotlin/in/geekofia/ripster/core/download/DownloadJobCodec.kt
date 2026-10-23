@@ -3,6 +3,7 @@ package `in`.geekofia.ripster.core.download
 import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.NetworkProblem
+import `in`.geekofia.ripster.core.source.SiteOutcome
 import `in`.geekofia.ripster.core.source.UrlProblem
 
 /**
@@ -115,6 +116,7 @@ internal object DownloadJobCodec {
     internal fun encodeError(e: MediaError): String = when (e) {
         is MediaError.InvalidUrl -> listOf("url", e.problem.name)
         MediaError.WebPage -> listOf("webpage")
+        is MediaError.Site -> listOf("site", e.site, e.outcome.name, e.detail)
         MediaError.NoMediaOnPage -> listOf("nopagemedia")
         MediaError.UnsupportedPageMedia -> listOf("pagemedia")
         is MediaError.NotHls -> listOf("nothls", e.contentType.orEmpty())
@@ -140,6 +142,7 @@ internal object DownloadJobCodec {
         return when (p[0]) {
             "url" -> UrlProblem.entries.firstOrNull { it.name == arg(1) }?.let(MediaError::InvalidUrl)
             "webpage" -> MediaError.WebPage
+            "site" -> SiteOutcome.entries.firstOrNull { it.name == arg(2) }?.let { MediaError.Site(arg(1), it, arg(3)) }
             "nopagemedia" -> MediaError.NoMediaOnPage
             // "pagenothls" was written before direct files were supported.
             "pagemedia", "pagenothls" -> MediaError.UnsupportedPageMedia

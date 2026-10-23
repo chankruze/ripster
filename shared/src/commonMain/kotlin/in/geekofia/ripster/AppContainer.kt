@@ -6,6 +6,7 @@ import `in`.geekofia.ripster.core.source.DefaultSourceResolver
 import `in`.geekofia.ripster.core.settings.OutputSettingsRepository
 import `in`.geekofia.ripster.core.source.HlsSourceResolver
 import `in`.geekofia.ripster.core.source.MediaSourceResolver
+import `in`.geekofia.ripster.core.source.site.PornhubAdapter
 import `in`.geekofia.ripster.platform.PlatformServices
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -28,7 +29,11 @@ class AppContainer(val platformServices: PlatformServices) {
     val outputSettings = OutputSettingsRepository(platformServices.settingsStore)
 
     /** Direct files, HLS manifests, and web pages that declare either (see [DefaultSourceResolver]). */
-    val resolver: MediaSourceResolver = DefaultSourceResolver(platformServices.httpClient, HlsSourceResolver(platformServices.httpClient))
+    val resolver: MediaSourceResolver = DefaultSourceResolver(
+        http = platformServices.httpClient,
+        hls = HlsSourceResolver(platformServices.httpClient),
+        adapters = listOf(PornhubAdapter(platformServices.httpClient)),
+    )
 
     val downloads = DownloadCoordinator(
         repository = DownloadRepository(platformServices.queueStore, appScope, platformServices.ioDispatcher),

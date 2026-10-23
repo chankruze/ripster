@@ -3,6 +3,7 @@ package `in`.geekofia.ripster.core.download
 import `in`.geekofia.ripster.core.source.FileContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.NetworkProblem
+import `in`.geekofia.ripster.core.source.SiteOutcome
 import `in`.geekofia.ripster.core.source.UrlProblem
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -61,6 +62,8 @@ class DownloadJobCodecTest {
             MediaError.InvalidUrl(UrlProblem.Insecure),
             MediaError.WebPage,
             MediaError.NoMediaOnPage,
+            MediaError.Site("Pornhub", SiteOutcome.MetadataOnly, "No openly provided source, \"quoted\"."),
+            MediaError.Site("Pornhub", SiteOutcome.Restricted, ""),
             MediaError.UnsupportedPageMedia,
             MediaError.NotHls("text/plain"),
             MediaError.NotHls(null),

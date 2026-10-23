@@ -7,6 +7,7 @@ import `in`.geekofia.ripster.core.hls.HlsVariant
 import `in`.geekofia.ripster.core.hls.SegmentContainer
 import `in`.geekofia.ripster.core.source.MediaError
 import `in`.geekofia.ripster.core.source.MediaSelection
+import `in`.geekofia.ripster.core.source.PageMetadata
 import `in`.geekofia.ripster.core.source.ResolvedSource
 import `in`.geekofia.ripster.core.source.SampleSource
 import `in`.geekofia.ripster.core.source.oneDecimal
@@ -21,7 +22,8 @@ sealed interface Inspection {
         val selection: MediaSelection get() = source.selectionFor(selectedVariant)
     }
 
-    data class Failed(val error: MediaError) : Inspection
+    /** [page] is metadata a site adapter found even though there is nothing to download. */
+    data class Failed(val error: MediaError, val page: PageMetadata? = null) : Inspection
 }
 
 data class HomeUiState(

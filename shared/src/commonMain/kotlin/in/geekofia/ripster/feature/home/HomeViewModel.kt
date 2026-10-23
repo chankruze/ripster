@@ -57,7 +57,7 @@ class HomeViewModel(
         inspectJob = viewModelScope.launch {
             val inspection = when (val result = resolver.resolve(url)) {
                 is SourceResolution.Supported -> Inspection.Ready(result.source, result.source.defaultVariantIndex)
-                is SourceResolution.Rejected -> Inspection.Failed(result.error)
+                is SourceResolution.Rejected -> Inspection.Failed(result.error, result.page)
             }
             // Ignore a result for a URL the user has since changed.
             if (uiState.inspection == Inspection.Inspecting(url)) uiState = uiState.copy(inspection = inspection)

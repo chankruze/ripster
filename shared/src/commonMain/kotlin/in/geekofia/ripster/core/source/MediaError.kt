@@ -19,6 +19,8 @@ enum class ErrorCategory {
     Unknown,
 }
 
+enum class SiteOutcome { MetadataOnly, Unsupported, Restricted, Unavailable }
+
 enum class NetworkProblem { Offline, Timeout, Tls, TooManyRedirects, InsecureRedirect, ResponseTooLarge, Other }
 
 /**
@@ -45,6 +47,19 @@ sealed class MediaError {
     /** The page declares media, but only in formats Ripster can't download (not HLS, MP4, MKV or WebM). */
     data object UnsupportedPageMedia : MediaError() {
         override val category get() = ErrorCategory.Unsupported
+    }
+
+    /**
+     * A site adapter's outcome other than a resolved source (see `SiteResolution`). [detail] is the
+     * adapter's explanation, shown to the user.
+     */
+    data class Site(val site: String, val outcome: SiteOutcome, val detail: String) : MediaError() {
+        override val category
+            get() = when (outcome) {
+                SiteOutcome.MetadataOnly, SiteOutcome.Unsupported -> ErrorCategory.Unsupported
+                SiteOutcome.Restricted -> ErrorCategory.Unauthorized
+                SiteOutcome.Unavailable -> ErrorCategory.Unavailable
+            }
     }
 
     data class NotHls(val contentType: String?) : MediaError() {

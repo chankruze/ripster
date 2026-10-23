@@ -39,7 +39,9 @@ class MediaErrorTest {
             NetworkProblem.entries.map(MediaError::Network) +
             listOf(401, 403, 404, 410, 429, 500, 418).map { MediaError.HttpStatus(it) } +
             listOf(
-                MediaError.WebPage, MediaError.NoMediaOnPage, MediaError.UnsupportedPageMedia, MediaError.NotHls(null), MediaError.LiveStream, MediaError.DrmProtected,
+                MediaError.WebPage, MediaError.NoMediaOnPage,
+                MediaError.Site("Pornhub", SiteOutcome.MetadataOnly, "x"), MediaError.Site("Pornhub", SiteOutcome.Unsupported, "x"),
+                MediaError.Site("Pornhub", SiteOutcome.Restricted, "x"), MediaError.Site("Pornhub", SiteOutcome.Unavailable, "x"), MediaError.UnsupportedPageMedia, MediaError.NotHls(null), MediaError.LiveStream, MediaError.DrmProtected,
                 MediaError.SampleAesEncrypted, MediaError.Parse("x"), MediaError.InsufficientStorage(2_000_000_000, 1_048_576),
                 MediaError.OutputUnavailable("x"), MediaError.ExportUnsupported("x"), MediaError.ExportFailed("x"), MediaError.DownloadedDataMissing,
                 MediaError.Unknown("x"),

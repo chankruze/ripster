@@ -24,6 +24,15 @@ fun MediaError.message(): ErrorMessage = when (this) {
         "Unsupported media format",
         "The page declares media, but not in a format Ripster can download (HLS, MP4, MKV or WebM).",
     )
+    is MediaError.Site -> ErrorMessage(
+        when (outcome) {
+            SiteOutcome.MetadataOnly -> "No downloadable source"
+            SiteOutcome.Unsupported -> "Unsupported ${site} link"
+            SiteOutcome.Restricted -> "Access restricted"
+            SiteOutcome.Unavailable -> "Video unavailable"
+        },
+        detail,
+    )
     is MediaError.NotHls -> ErrorMessage(
         "Not an HLS manifest",
         "The server returned ${contentType?.let { "\"$it\"" } ?: "something"} instead of an M3U8 playlist.",

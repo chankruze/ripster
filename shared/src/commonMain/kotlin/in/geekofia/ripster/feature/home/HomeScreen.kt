@@ -237,6 +237,17 @@ private fun ErrorCard(failed: Inspection.Failed) {
         else -> "Can't use this source"
     }
     SectionCard(title = heading) {
+        failed.page?.let { page ->
+            // What the page says about itself, so it's clear the right page was found.
+            page.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            val facts = listOfNotNull(
+                page.durationSeconds?.let(::formatDuration),
+                page.canonicalUrl?.let(SourceUrl::displayForm),
+            )
+            if (facts.isNotEmpty()) {
+                Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Text(message.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
         Text(message.detail, style = MaterialTheme.typography.bodyMedium)
     }

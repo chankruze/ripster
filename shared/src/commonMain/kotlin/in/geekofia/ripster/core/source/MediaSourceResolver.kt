@@ -84,8 +84,11 @@ data class PageOrigin(val title: String?, val declaration: MediaDeclaration)
 sealed interface SourceResolution {
     data class Supported(val source: ResolvedSource) : SourceResolution
 
-    /** See [MediaError.category] for the kind of rejection (user action, unsupported, expired, …). */
-    data class Rejected(val error: MediaError) : SourceResolution
+    /**
+     * See [MediaError.category] for the kind of rejection (user action, unsupported, expired, …).
+     * [page] is what a site adapter learned about the page, shown even though nothing can be downloaded.
+     */
+    data class Rejected(val error: MediaError, val page: PageMetadata? = null) : SourceResolution
 }
 
 /**
