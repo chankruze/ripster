@@ -1,0 +1,7 @@
+<resources>
+    <string name="ripster_download_channel_name">Downloads</string>
+    <string name="ripster_download_channel_description">Progress of media downloads</string>
+    <string name="ripster_export_channel_name">MP4 export</string>
+    <string name="ripster_export_channel_description">Progress of MP4 exports</string>
+    <string name="ripster_export_notification_title">Exporting MP4</string>
+</resources>
