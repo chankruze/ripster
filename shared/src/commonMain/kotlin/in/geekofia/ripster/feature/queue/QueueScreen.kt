@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -25,11 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -88,29 +87,34 @@ enum class QueueTab(val label: String) { Active("Active"), Finished("Finished") 
 
 @Composable
 fun QueueScreen(state: QueueUiState, actions: JobActions, modifier: Modifier = Modifier) {
-    var tab by rememberSaveable { mutableStateOf(QueueTab.Active) }
+    val pager = rememberPagerState { QueueTab.entries.size }
+    val scope = rememberCoroutineScope()
     ScreenScaffold(title = "Queue", modifier = modifier) { contentModifier ->
         Column(contentModifier.fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = tab.ordinal) {
+            PrimaryTabRow(selectedTabIndex = pager.currentPage) {
                 QueueTab.entries.forEach { item ->
                     val count = if (item == QueueTab.Active) state.active.size else state.finished.size
                     Tab(
-                        selected = item == tab,
-                        onClick = { tab = item },
+                        selected = item.ordinal == pager.currentPage,
+                        onClick = { scope.launch { pager.animateScrollToPage(item.ordinal) } },
                         text = { Text(if (count > 0) "${item.label} ($count)" else item.label) },
                     )
                 }
             }
-            val jobs = if (tab == QueueTab.Active) state.active else state.finished
-            if (jobs.isEmpty()) {
-                EmptyTab(tab)
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(jobs, key = { it.id }) { JobCard(it, actions) }
+            // Swipe between the tabs; the pager's state is saveable, so the tab survives rotation.
+            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { QueueTab.entries[it].name }) { page ->
+                val tab = QueueTab.entries[page]
+                val jobs = if (tab == QueueTab.Active) state.active else state.finished
+                if (jobs.isEmpty()) {
+                    EmptyTab(tab)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(jobs, key = { it.id }) { JobCard(it, actions) }
+                    }
                 }
             }
         }
