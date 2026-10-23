@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -22,10 +21,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -71,6 +76,19 @@ fun HomeRoute(
     viewModel: HomeViewModel = viewModel { HomeViewModel(resolver, downloads, clipboard, notificationPermission) },
 ) {
     val folder by outputSettings.folder.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val result = viewModel.uiState.lastResult
+    // Shown as a snackbar so it's visible however far the screen is scrolled.
+    LaunchedEffect(result) {
+        if (result == null) return@LaunchedEffect
+        val message = when (result) {
+            is EnqueueResult.Added -> "Added \"${result.job.title}\" to the queue."
+            is EnqueueResult.AlreadyQueued -> "\"${result.job.title}\" is already in the queue."
+        }
+        val action = snackbar.showSnackbar(message, actionLabel = "View queue", duration = SnackbarDuration.Short)
+        viewModel.dismissResult()
+        if (action == SnackbarResult.ActionPerformed) onOpenQueue()
+    }
     HomeScreen(
         state = viewModel.uiState,
         samples = if (showSamples) SampleSources.all else emptyList(),
@@ -84,10 +102,7 @@ fun HomeRoute(
         onDownload = viewModel::download,
         onChooseFolder = { folderPicker.pick(outputSettings::setFolder) },
         onUseAppStorage = { outputSettings.setFolder(null) },
-        onOpenQueue = {
-            viewModel.dismissResult()
-            onOpenQueue()
-        },
+        snackbarHostState = snackbar,
         modifier = modifier,
     )
 }
@@ -106,10 +121,14 @@ fun HomeScreen(
     onDownload: () -> Unit,
     onChooseFolder: () -> Unit,
     onUseAppStorage: () -> Unit,
-    onOpenQueue: () -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
-    ScreenScaffold(title = "Ripster", modifier = modifier) { contentModifier ->
+    ScreenScaffold(
+        title = "Ripster",
+        modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { contentModifier ->
         Column(
             modifier = contentModifier
                 .fillMaxSize()
@@ -127,7 +146,7 @@ fun HomeScreen(
                     SourceCard(inspection)
                     if (inspection.source.variants.isNotEmpty()) VariantList(inspection, onSelectVariant)
                     OutputCard(inspection, outputFolder, onChooseFolder, onUseAppStorage)
-                    DownloadAction(state, onDownload, onOpenQueue)
+                    DownloadAction(state, onDownload)
                 }
             }
         }
@@ -293,18 +312,8 @@ private fun OutputCard(
 }
 
 @Composable
-private fun DownloadAction(state: HomeUiState, onDownload: () -> Unit, onOpenQueue: () -> Unit) {
+private fun DownloadAction(state: HomeUiState, onDownload: () -> Unit) {
     Button(onClick = onDownload, enabled = state.canDownload, modifier = Modifier.fillMaxWidth()) {
         Text(if (state.isEnqueueing) "Adding…" else "Download")
-    }
-    state.lastResult?.let { result ->
-        val text = when (result) {
-            is EnqueueResult.Added -> "Added \"${result.job.title}\" to the queue."
-            is EnqueueResult.AlreadyQueued -> "\"${result.job.title}\" is already in the queue."
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            FilledTonalButton(onClick = onOpenQueue) { Text("View queue") }
-        }
     }
 }

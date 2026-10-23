@@ -31,11 +31,13 @@ fun ScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     content: @Composable (Modifier) -> Unit,
 ) {
     Scaffold(
         modifier = modifier,
         topBar = { TopAppBar(title = { Text(title) }, actions = actions) },
+        snackbarHost = snackbarHost,
         contentWindowInsets = WindowInsets(0),
     ) { innerPadding ->
         content(Modifier.padding(innerPadding))
