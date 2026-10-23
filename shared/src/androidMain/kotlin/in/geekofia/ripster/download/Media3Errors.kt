@@ -52,7 +52,7 @@ internal fun exportError(e: ExportException): MediaError {
         ExportException.ERROR_CODE_IO_FILE_NOT_FOUND,
         ExportException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE,
         ExportException.ERROR_CODE_IO_UNSPECIFIED,
-        -> MediaError.ExportFailed("The downloaded media couldn't be read. Retry to download it again.")
+        -> MediaError.DownloadedDataMissing
         else -> MediaError.ExportFailed("Export stopped: ${e.errorCodeName}.")
     }
 }

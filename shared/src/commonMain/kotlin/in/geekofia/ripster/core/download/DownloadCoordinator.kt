@@ -280,6 +280,9 @@ class DownloadCoordinator(
             return@withLock
         } catch (e: MediaException) {
             transition(id, JobEvent.Fail(e.error))
+            // The engine still lists the download as complete, but its data is gone: forget it, so
+            // Retry downloads again instead of failing the same way forever.
+            if (e.error == MediaError.DownloadedDataMissing) removeEngineData(id)
             return@withLock
         } catch (e: Exception) {
             transition(id, JobEvent.Fail(MediaError.ExportFailed(e.message ?: "Unexpected error")))

@@ -75,6 +75,7 @@ class DownloadJobCodecTest {
             MediaError.OutputUnavailable("gone"),
             MediaError.ExportUnsupported("ac-3"),
             MediaError.ExportFailed("io"),
+            MediaError.DownloadedDataMissing,
             MediaError.Unknown("?"),
         )
         errors.forEach { error ->

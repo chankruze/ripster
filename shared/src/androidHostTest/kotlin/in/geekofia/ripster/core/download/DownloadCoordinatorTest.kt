@@ -322,6 +322,25 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun missingDownloadedDataIsDownloadedAgainOnRetry() = runBlocking<Unit> {
+        var attempts = 0
+        exporter.behaviour = { _, _ -> if (attempts++ == 0) throw MediaException(MediaError.DownloadedDataMissing) else testOutput }
+        val downloads = coordinator()
+        val job = downloads.add()
+        downloads.awaitState(job.id, Downloading)
+        engine.set(job.id, EngineStatus.Completed(1))
+        assertEquals(MediaError.DownloadedDataMissing, downloads.awaitState(job.id, Failed).error)
+        // The stale "completed" record is dropped, so a retry starts a real download.
+        eventually<List<String>>(value = { engine.removed.toList() }) { job.id in it }
+
+        downloads.retry(job.id)
+        downloads.await(job.id) { it.state == Downloading && it.attempt == 2 }
+        assertEquals(listOf(job.id, job.id), engine.enqueued)
+        engine.set(job.id, EngineStatus.Completed(1))
+        downloads.awaitState(job.id, Completed)
+    }
+
+    @Test
     fun unsupportedExportsAreNotRetried() = runBlocking<Unit> {
         exporter.behaviour = { _, _ -> throw MediaException(MediaError.ExportUnsupported("AC-3")) }
         val downloads = coordinator()

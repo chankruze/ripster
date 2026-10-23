@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -52,9 +53,10 @@ class DownloadRepository(
         val text = withContext(ioDispatcher) { store.read() }
         lastWritten = text
         val stored = DownloadJobCodec.decode(text)
-        // Anything added before loading finished stays on top.
-        state.value = (state.value + stored.filter { s -> state.value.none { it.id == s.id } })
-            .sortedByDescending { it.createdAtMillis }
+        // Atomic: a job added while the store was being read must not be lost to this merge.
+        state.update { current ->
+            (current + stored.filter { s -> current.none { it.id == s.id } }).sortedByDescending { it.createdAtMillis }
+        }
         loadedState.value = true
         writes.trySend(Unit)
     }

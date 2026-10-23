@@ -61,6 +61,10 @@ fun MediaError.message(): ErrorMessage = when (this) {
     )
     is MediaError.OutputUnavailable -> ErrorMessage("Can't save to the folder", "$detail Choose another output folder, then retry.")
     is MediaError.ExportUnsupported -> ErrorMessage("Can't export to MP4", detail)
+    MediaError.DownloadedDataMissing -> ErrorMessage(
+        "Downloaded data is missing",
+        "The downloaded media can't be read anymore. Retry to download it again.",
+    )
     is MediaError.ExportFailed -> ErrorMessage("Export failed", detail)
     is MediaError.Unknown -> ErrorMessage("Something went wrong", detail)
 }

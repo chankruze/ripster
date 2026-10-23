@@ -97,6 +97,11 @@ sealed class MediaError {
         override val category get() = ErrorCategory.Export
     }
 
+    /** The finished download's data is gone or unreadable. Retry downloads it again. */
+    data object DownloadedDataMissing : MediaError() {
+        override val category get() = ErrorCategory.Storage
+    }
+
     data class ExportFailed(val detail: String) : MediaError() {
         override val category get() = ErrorCategory.Export
     }

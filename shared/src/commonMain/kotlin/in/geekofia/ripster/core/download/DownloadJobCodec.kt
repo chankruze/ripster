@@ -128,6 +128,7 @@ internal object DownloadJobCodec {
             listOf("storage", e.requiredBytes?.toString().orEmpty(), e.availableBytes?.toString().orEmpty())
         is MediaError.OutputUnavailable -> listOf("output", e.detail)
         is MediaError.ExportUnsupported -> listOf("exportunsupported", e.detail)
+        MediaError.DownloadedDataMissing -> listOf("datamissing")
         is MediaError.ExportFailed -> listOf("exportfailed", e.detail)
         is MediaError.Unknown -> listOf("unknown", e.detail)
     }.joinToString(SUB.toString())
@@ -152,6 +153,7 @@ internal object DownloadJobCodec {
             "storage" -> MediaError.InsufficientStorage(arg(1).toLongOrNull(), arg(2).toLongOrNull())
             "output" -> MediaError.OutputUnavailable(arg(1))
             "exportunsupported" -> MediaError.ExportUnsupported(arg(1))
+            "datamissing" -> MediaError.DownloadedDataMissing
             "exportfailed" -> MediaError.ExportFailed(arg(1))
             "unknown" -> MediaError.Unknown(arg(1))
             else -> null

@@ -60,7 +60,8 @@ import kotlinx.coroutines.withContext
 internal class TransformerExporter(
     private val context: Context,
     private val downloadManager: DownloadManager,
-    private val offlineDataSourceFactory: CacheDataSource.Factory,
+    /** A job's offline (cache-only) data source; see `AndroidDownloads.jobCacheKeys`. */
+    private val offlineDataSource: (jobId: String) -> CacheDataSource.Factory,
     private val publisher: OutputPublisher,
     private val activity: ExportActivity,
     private val ioDispatcher: CoroutineDispatcher,
@@ -69,7 +70,7 @@ internal class TransformerExporter(
     override suspend fun export(job: DownloadJob, destination: OutputFolder?, onProgress: (Float?) -> Unit): OutputFile {
         val download = withContext(ioDispatcher) { downloadManager.downloadIndex.getDownload(job.id) }
         if (download == null || download.state != Download.STATE_COMPLETED) {
-            throw MediaException(MediaError.ExportFailed("The downloaded media is missing. Retry to download it again."))
+            throw MediaException(MediaError.DownloadedDataMissing)
         }
         val container = job.file ?: FileContainer.Mp4
         val partial = withContext(ioDispatcher) { publisher.newPartialFile(job.id, container) }
@@ -101,7 +102,7 @@ internal class TransformerExporter(
      */
     private suspend fun copyFromCache(download: Download, output: File, onProgress: (Float?) -> Unit): Long =
         withContext(ioDispatcher) {
-            val dataSource = offlineDataSourceFactory.createDataSource()
+            val dataSource = offlineDataSource(download.request.id).createDataSource()
             val spec = DataSpec.Builder().setUri(download.request.uri).setKey(download.request.customCacheKey).build()
             try {
                 val length = dataSource.open(spec).takeIf { it != C.LENGTH_UNSET.toLong() } ?: download.contentLength.takeIf { it > 0 }
@@ -123,7 +124,7 @@ internal class TransformerExporter(
                     copied
                 }
             } catch (e: IOException) {
-                throw MediaException(MediaError.ExportFailed("The downloaded file couldn't be read. Retry to download it again."), e)
+                throw MediaException(MediaError.DownloadedDataMissing, e)
             } finally {
                 dataSource.close()
             }
@@ -136,7 +137,7 @@ internal class TransformerExporter(
                 context,
                 DefaultDecoderFactory.Builder(context).build(),
                 Clock.DEFAULT,
-                DefaultMediaSourceFactory(offlineDataSourceFactory),
+                DefaultMediaSourceFactory(offlineDataSource(download.request.id)),
                 DataSourceBitmapLoader(context),
             )
             val transformer = Transformer.Builder(context).setAssetLoaderFactory(assetLoaderFactory).build()

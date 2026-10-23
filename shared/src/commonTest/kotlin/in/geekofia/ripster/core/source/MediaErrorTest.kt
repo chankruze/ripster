@@ -30,6 +30,7 @@ class MediaErrorTest {
         assertTrue(MediaError.HttpStatus(403, signedUrl = true).isRetryable, "retry re-inspects, so a fresh link can work")
         assertTrue(MediaError.InsufficientStorage(null, null).isRetryable)
         assertTrue(MediaError.ExportFailed("io").isRetryable)
+        assertTrue(MediaError.DownloadedDataMissing.isRetryable)
     }
 
     @Test
@@ -40,7 +41,7 @@ class MediaErrorTest {
             listOf(
                 MediaError.WebPage, MediaError.NoMediaOnPage, MediaError.UnsupportedPageMedia, MediaError.NotHls(null), MediaError.LiveStream, MediaError.DrmProtected,
                 MediaError.SampleAesEncrypted, MediaError.Parse("x"), MediaError.InsufficientStorage(2_000_000_000, 1_048_576),
-                MediaError.OutputUnavailable("x"), MediaError.ExportUnsupported("x"), MediaError.ExportFailed("x"),
+                MediaError.OutputUnavailable("x"), MediaError.ExportUnsupported("x"), MediaError.ExportFailed("x"), MediaError.DownloadedDataMissing,
                 MediaError.Unknown("x"),
             )
         errors.forEach { error ->
