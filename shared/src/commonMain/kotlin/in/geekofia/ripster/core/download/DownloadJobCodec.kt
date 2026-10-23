@@ -96,6 +96,8 @@ internal object DownloadJobCodec {
     internal fun encodeError(e: MediaError): String = when (e) {
         is MediaError.InvalidUrl -> listOf("url", e.problem.name)
         MediaError.WebPage -> listOf("webpage")
+        MediaError.NoMediaOnPage -> listOf("nopagemedia")
+        is MediaError.PageMediaNotHls -> listOf("pagenothls", bool(e.hasMp4))
         is MediaError.NotHls -> listOf("nothls", e.contentType.orEmpty())
         MediaError.LiveStream -> listOf("live")
         MediaError.DrmProtected -> listOf("drm")
@@ -118,6 +120,8 @@ internal object DownloadJobCodec {
         return when (p[0]) {
             "url" -> UrlProblem.entries.firstOrNull { it.name == arg(1) }?.let(MediaError::InvalidUrl)
             "webpage" -> MediaError.WebPage
+            "nopagemedia" -> MediaError.NoMediaOnPage
+            "pagenothls" -> MediaError.PageMediaNotHls(arg(1) == "1")
             "nothls" -> MediaError.NotHls(arg(1).ifEmpty { null })
             "live" -> MediaError.LiveStream
             "drm" -> MediaError.DrmProtected

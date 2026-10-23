@@ -5,6 +5,7 @@ import `in`.geekofia.ripster.core.download.DownloadRepository
 import `in`.geekofia.ripster.core.settings.OutputSettingsRepository
 import `in`.geekofia.ripster.core.source.HlsSourceResolver
 import `in`.geekofia.ripster.core.source.MediaSourceResolver
+import `in`.geekofia.ripster.core.source.WebPageResolver
 import `in`.geekofia.ripster.platform.PlatformServices
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -26,7 +27,8 @@ class AppContainer(val platformServices: PlatformServices) {
 
     val outputSettings = OutputSettingsRepository(platformServices.settingsStore)
 
-    val resolver: MediaSourceResolver = HlsSourceResolver(platformServices.httpClient)
+    /** Direct manifests, and web pages that declare one (see [WebPageResolver]). */
+    val resolver: MediaSourceResolver = WebPageResolver(platformServices.httpClient, HlsSourceResolver(platformServices.httpClient))
 
     val downloads = DownloadCoordinator(
         repository = DownloadRepository(platformServices.queueStore, appScope, platformServices.ioDispatcher),

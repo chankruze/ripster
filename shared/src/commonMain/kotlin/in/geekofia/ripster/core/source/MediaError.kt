@@ -37,6 +37,16 @@ sealed class MediaError {
         override val category get() = ErrorCategory.NeedsUserAction
     }
 
+    /** A web page that declares no media link in a standard place (see `PageMediaExtractor`). */
+    data object NoMediaOnPage : MediaError() {
+        override val category get() = ErrorCategory.NeedsUserAction
+    }
+
+    /** The page declares media, but only formats Ripster can't download yet (e.g. a plain MP4). */
+    data class PageMediaNotHls(val hasMp4: Boolean) : MediaError() {
+        override val category get() = ErrorCategory.Unsupported
+    }
+
     data class NotHls(val contentType: String?) : MediaError() {
         override val category get() = ErrorCategory.Unsupported
     }

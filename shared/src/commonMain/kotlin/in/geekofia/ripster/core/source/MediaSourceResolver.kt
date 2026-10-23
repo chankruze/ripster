@@ -43,6 +43,8 @@ data class ResolvedSource(
     val audioRenditions: List<HlsAudioRendition>,
     val defaultVariantIndex: Int?,
     val details: MediaDetails,
+    /** Set when [inputUrl] is a web page that declared this manifest; null for a direct link. */
+    val foundOnPage: PageOrigin? = null,
 ) {
     val defaultSelection: MediaSelection get() = selectionFor(defaultVariantIndex?.let(variants::getOrNull))
 
@@ -69,6 +71,9 @@ data class ResolvedSource(
             }
     }
 }
+
+/** How a manifest was found on a web page, for display and for naming the download. */
+data class PageOrigin(val title: String?, val declaration: MediaDeclaration)
 
 sealed interface SourceResolution {
     data class Supported(val source: ResolvedSource) : SourceResolution

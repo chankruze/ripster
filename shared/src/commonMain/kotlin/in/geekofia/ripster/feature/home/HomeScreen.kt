@@ -161,16 +161,16 @@ private fun SourceInput(
     onClear: () -> Unit,
     onInspect: () -> Unit,
 ) {
-    SectionCard(title = "HLS manifest URL") {
+    SectionCard(title = "Manifest or page URL") {
         OutlinedTextField(
             value = state.url,
             onValueChange = onUrlChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("https://…/playlist.m3u8") },
+            placeholder = { Text("https://…/playlist.m3u8 or a page URL") },
             singleLine = true,
             supportingText = {
                 Text(
-                    if (state.sample != null) "Sample stream: ${state.sample.title}" else "A direct link to an .m3u8 manifest you're allowed to download",
+                    if (state.sample != null) "Sample stream: ${state.sample.title}" else "An .m3u8 link, or a page that declares one. Only media you're allowed to download",
                 )
             },
             trailingIcon = if (state.url.isNotEmpty()) {
@@ -246,6 +246,14 @@ private fun SourceCard(ready: Inspection.Ready) {
     val source = ready.source
     val details = source.details
     SectionCard(title = "Source") {
+        source.foundOnPage?.let { origin ->
+            Text(
+                "Found on ${SourceUrl.displayForm(source.inputUrl).substringBefore('/')} · ${origin.declaration.label}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            origin.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        }
         Text(SourceUrl.displayForm(source.manifestUrl), maxLines = 1, overflow = TextOverflow.Ellipsis)
         val kind = when (source.kind) {
             ManifestKind.Multivariant -> "Adaptive playlist · ${source.variants.size} variants"

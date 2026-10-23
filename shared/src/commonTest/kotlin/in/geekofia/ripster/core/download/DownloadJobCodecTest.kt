@@ -38,6 +38,8 @@ class DownloadJobCodecTest {
         val errors = listOf(
             MediaError.InvalidUrl(UrlProblem.Insecure),
             MediaError.WebPage,
+            MediaError.NoMediaOnPage,
+            MediaError.PageMediaNotHls(hasMp4 = true),
             MediaError.NotHls("text/plain"),
             MediaError.NotHls(null),
             MediaError.LiveStream,

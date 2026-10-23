@@ -20,6 +20,8 @@ class MediaErrorTest {
     fun retryIsOfferedOnlyWhenItCanHelp() {
         assertFalse(MediaError.InvalidUrl(UrlProblem.Empty).isRetryable)
         assertFalse(MediaError.WebPage.isRetryable)
+        assertFalse(MediaError.NoMediaOnPage.isRetryable)
+        assertFalse(MediaError.PageMediaNotHls(true).isRetryable)
         assertFalse(MediaError.DrmProtected.isRetryable)
         assertFalse(MediaError.LiveStream.isRetryable)
         assertFalse(MediaError.ExportUnsupported("ac-3").isRetryable)
@@ -36,7 +38,7 @@ class MediaErrorTest {
             NetworkProblem.entries.map(MediaError::Network) +
             listOf(401, 403, 404, 410, 429, 500, 418).map { MediaError.HttpStatus(it) } +
             listOf(
-                MediaError.WebPage, MediaError.NotHls(null), MediaError.LiveStream, MediaError.DrmProtected,
+                MediaError.WebPage, MediaError.NoMediaOnPage, MediaError.PageMediaNotHls(true), MediaError.PageMediaNotHls(false), MediaError.NotHls(null), MediaError.LiveStream, MediaError.DrmProtected,
                 MediaError.SampleAesEncrypted, MediaError.Parse("x"), MediaError.InsufficientStorage(2_000_000_000, 1_048_576),
                 MediaError.OutputUnavailable("x"), MediaError.ExportUnsupported("x"), MediaError.ExportFailed("x"),
                 MediaError.Unknown("x"),
