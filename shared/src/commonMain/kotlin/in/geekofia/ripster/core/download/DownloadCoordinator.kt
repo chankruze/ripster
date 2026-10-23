@@ -76,7 +76,7 @@ class DownloadCoordinator(
         started = true
         scope.launch {
             repository.load()
-            engine.snapshot.collect { reconcile(it) }
+            engine.snapshot.collect { reconcile() }
         }
     }
 
@@ -108,7 +108,7 @@ class DownloadCoordinator(
             repository.add(job)
             EnqueueResult.Added(job)
         }
-        reconcile(engine.snapshot.value)
+        reconcile()
         return result
     }
 
@@ -134,7 +134,7 @@ class DownloadCoordinator(
                 if (job.error?.isRetryable == false) return@withLock
                 transition(id, JobEvent.Retry)
             }
-            reconcile(engine.snapshot.value)
+            reconcile()
         }
     }
 
@@ -150,10 +150,17 @@ class DownloadCoordinator(
         }
     }
 
-    private suspend fun reconcile(snapshot: EngineSnapshot) {
+    /**
+     * The snapshot is read *inside* the lock. A snapshot captured before waiting for it can be
+     * stale by the time this runs: e.g. still "Failed" after a retry already re-enqueued the job,
+     * which would fail the fresh attempt. Under the lock, in-flight work is still registered (its
+     * cleanup needs the lock), so jobs and engine state are seen consistently.
+     */
+    private suspend fun reconcile() {
         if (!repository.loaded.value) return
         val toRemove = mutableListOf<String>()
         lock.withLock {
+            val snapshot = engine.snapshot.value
             val jobs = repository.jobs.value
             for (job in jobs) {
                 if (job.id in work) continue
@@ -290,7 +297,7 @@ class DownloadCoordinator(
             scope.launch(NonCancellable) {
                 lock.withLock { if (work[id] === job) work.remove(id) }
                 // Whatever this work left behind (e.g. an engine update it raced with) is picked up now.
-                reconcile(engine.snapshot.value)
+                reconcile()
             }
         }
     }
@@ -336,6 +343,7 @@ class DownloadCoordinator(
         /** A sample's title, else a meaningful path segment, else the host; plus the quality. */
         fun titleFor(source: ResolvedSource, selection: MediaSelection): String {
             val base = SampleSources.find(source.inputUrl)?.title
+                ?: source.foundOnPage?.title
                 ?: SourceUrl.pathSegments(source.inputUrl).map { it.substringBeforeLast('.') }
                     .lastOrNull { it.lowercase() !in genericNames }
                 ?: SourceUrl.displayForm(source.inputUrl).substringBefore('/')
