@@ -47,18 +47,22 @@ class DefaultSourceResolver(
     }
 
     private suspend fun resolvePage(pageUrl: String): SourceResolution {
-        val page = try {
+        val (page, thumbnailUrl) = try {
             val response = http.get(pageUrl, MAX_PAGE_BYTES)
             if (response.statusCode !in 200..299) {
                 return SourceResolution.Rejected(MediaError.HttpStatus(response.statusCode, SourceUrl.looksSigned(pageUrl)))
             }
-            PageMediaExtractor.extract(response.body.decodeToString(), response.finalUrl)
+            val html = response.body.decodeToString()
+            PageMediaExtractor.extract(html, response.finalUrl) to PageMediaExtractor.metadata(html, response.finalUrl).thumbnailUrl
         } catch (e: CancellationException) {
             throw e
         } catch (e: MediaException) {
             return SourceResolution.Rejected(e.error)
         }
-        return validateDeclared(pageUrl, page.title, page.media)
+        return when (val result = validateDeclared(pageUrl, page.title, page.media)) {
+            is SourceResolution.Supported -> SourceResolution.Supported(result.source.copy(thumbnailUrl = thumbnailUrl))
+            is SourceResolution.Rejected -> result
+        }
     }
 
     /**
@@ -99,7 +103,10 @@ class DefaultSourceResolver(
     /** Only [SiteResolution.Resolved] becomes a downloadable source; everything else is a typed rejection. */
     private fun SiteResolution.toSourceResolution(site: String): SourceResolution = when (this) {
         is SiteResolution.Resolved -> SourceResolution.Supported(
-            source.copy(foundOnPage = source.foundOnPage?.copy(title = metadata.title ?: source.foundOnPage.title)),
+            source.copy(
+                foundOnPage = source.foundOnPage?.copy(title = metadata.title ?: source.foundOnPage.title),
+                thumbnailUrl = metadata.thumbnailUrl,
+            ),
         )
         is SiteResolution.MetadataOnly -> SourceResolution.Rejected(MediaError.Site(site, SiteOutcome.MetadataOnly, reason), metadata)
         is SiteResolution.Unsupported -> SourceResolution.Rejected(MediaError.Site(site, SiteOutcome.Unsupported, reason), metadata)

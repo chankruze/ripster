@@ -91,13 +91,19 @@ class DefaultSourceResolverTest {
 
     @Test
     fun aPageThatDeclaresAManifestResolvesToIt() {
-        http.respond(pageUrl, "<meta property=\"og:title\" content=\"Clip 42\"><video src=\"https://cdn.example/42.m3u8\"></video>", html)
+        http.respond(
+            pageUrl,
+            "<meta property=\"og:title\" content=\"Clip 42\"><meta property=\"og:image\" content=\"https://cdn.example/t.jpg\">" +
+                "<video src=\"https://cdn.example/42.m3u8\"></video>",
+            html,
+        )
         http.respond("https://cdn.example/42.m3u8", vod, m3u8)
         val source = assertIs<SourceResolution.Supported>(resolve()).source
         // The page stays the input, so a retry re-reads it for a fresh link.
         assertEquals(pageUrl, source.inputUrl)
         assertEquals("https://cdn.example/42.m3u8", source.manifestUrl)
         assertEquals(PageOrigin("Clip 42", MediaDeclaration.VideoTag), source.foundOnPage)
+        assertEquals("https://cdn.example/t.jpg", source.thumbnailUrl, "the page thumbnail is carried onto the source")
     }
 
     @Test

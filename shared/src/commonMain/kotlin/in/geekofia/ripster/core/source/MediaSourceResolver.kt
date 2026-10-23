@@ -51,6 +51,8 @@ data class ResolvedSource(
     val foundOnPage: PageOrigin? = null,
     /** Set for [ManifestKind.DirectFile]. */
     val file: DirectFileInfo? = null,
+    /** A preview image the page declared (https, from its metadata); null for a direct link. */
+    val thumbnailUrl: String? = null,
 ) {
     val defaultSelection: MediaSelection get() = selectionFor(defaultVariantIndex?.let(variants::getOrNull))
 

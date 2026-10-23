@@ -103,6 +103,7 @@ class DownloadCoordinator(
                 file = source.file?.container,
                 selection = selection.toJobSelection(),
                 durationSeconds = source.details.durationSeconds,
+                thumbnailUrl = source.thumbnailUrl,
                 state = DownloadState.Queued,
                 createdAtMillis = now,
                 updatedAtMillis = now,

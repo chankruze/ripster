@@ -52,6 +52,8 @@ data class DownloadJob(
     val file: FileContainer? = null,
     val selection: JobSelection,
     val durationSeconds: Double?,
+    /** A preview image URL (https) from the source page, if any. */
+    val thumbnailUrl: String? = null,
     val state: DownloadState,
     /** 0..1 for the current phase (download or export); null when not known. Never estimated. */
     val progress: Float? = null,

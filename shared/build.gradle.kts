@@ -39,6 +39,7 @@ kotlin {
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.transformer)
+            implementation(libs.coil.network.okhttp)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -46,6 +47,7 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
+            implementation(libs.coil.compose)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)

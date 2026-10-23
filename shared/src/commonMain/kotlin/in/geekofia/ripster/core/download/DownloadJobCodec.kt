@@ -13,15 +13,19 @@ import `in`.geekofia.ripster.core.source.UrlProblem
  * loses at most that job, never the app.
  */
 internal object DownloadJobCodec {
-    private const val VERSION = "q2"
+    private const val VERSION = "q3"
 
-    /** Before direct files: same layout without the file container and output MIME type. */
-    private const val VERSION_1 = "q1"
-    private const val FIELDS_V1 = 23
+    /**
+     * Field counts of every version read, newest to oldest. Older records are padded with empty
+     * strings up to [FIELDS], so each added field must default sensibly when empty:
+     * - q1 (23): before direct files (no file container, output MIME type) or thumbnail.
+     * - q2 (25): before the thumbnail URL.
+     */
+    private val FIELD_COUNTS = mapOf(VERSION to 26, "q2" to 25, "q1" to 23)
     private const val RECORD = '\u001E'
     private const val FIELD = '\u001F'
     private const val SUB = '\u001D'
-    private const val FIELDS = 25
+    private const val FIELDS = 26
 
     fun encode(jobs: List<DownloadJob>): String = buildString {
         append(VERSION)
@@ -33,15 +37,11 @@ internal object DownloadJobCodec {
 
     fun decode(encoded: String?): List<DownloadJob> {
         val records = encoded?.split(RECORD) ?: return emptyList()
-        val fieldCount = when (records.firstOrNull()) {
-            VERSION -> FIELDS
-            VERSION_1 -> FIELDS_V1
-            else -> return emptyList()
-        }
+        val fieldCount = FIELD_COUNTS[records.firstOrNull()] ?: return emptyList()
         return records.drop(1).mapNotNull { record ->
             val f = record.split(FIELD).map { unescape(it) ?: return@mapNotNull null }
             if (f.size != fieldCount) return@mapNotNull null
-            // Version 1 jobs were all HLS, exported to MP4: the defaults for the two new fields.
+            // Older records are padded; the new fields take their empty-string defaults.
             runCatching { job(f + List(FIELDS - f.size) { "" }) }.getOrNull()
         }
     }
@@ -72,6 +72,7 @@ internal object DownloadJobCodec {
         "", // Reserved for request configuration (headers) in a later version.
         j.file?.name.orEmpty(),
         j.output?.mimeType.orEmpty(),
+        j.thumbnailUrl.orEmpty(),
     )
 
     private fun job(f: List<String>): DownloadJob? {
@@ -102,6 +103,7 @@ internal object DownloadJobCodec {
                 codecs = if (f[9].isEmpty()) emptyList() else f[9].split(SUB),
             ),
             durationSeconds = f[10].toDoubleOrNull(),
+            thumbnailUrl = f[25].ifEmpty { null },
             state = state,
             progress = f[12].toFloatOrNull(),
             bytesDownloaded = f[13].toLongOrNull() ?: 0,

@@ -56,6 +56,7 @@ import `in`.geekofia.ripster.core.source.message
 import `in`.geekofia.ripster.platform.ClipboardReader
 import `in`.geekofia.ripster.platform.NotificationPermission
 import `in`.geekofia.ripster.platform.OutputFolderPicker
+import `in`.geekofia.ripster.ui.components.RemoteThumbnail
 import `in`.geekofia.ripster.ui.components.ScreenScaffold
 import `in`.geekofia.ripster.ui.components.SectionCard
 import org.jetbrains.compose.resources.painterResource
@@ -238,6 +239,7 @@ private fun ErrorCard(failed: Inspection.Failed) {
     }
     SectionCard(title = heading) {
         failed.page?.let { page ->
+            RemoteThumbnail(page.thumbnailUrl)
             // What the page says about itself, so it's clear the right page was found.
             page.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
             val facts = listOfNotNull(
@@ -258,6 +260,7 @@ private fun SourceCard(ready: Inspection.Ready) {
     val source = ready.source
     val details = source.details
     SectionCard(title = "Source") {
+        RemoteThumbnail(source.thumbnailUrl)
         source.foundOnPage?.let { origin ->
             Text(
                 "Found on ${SourceUrl.displayForm(source.inputUrl).substringBefore('/')} · ${origin.declaration.label}",

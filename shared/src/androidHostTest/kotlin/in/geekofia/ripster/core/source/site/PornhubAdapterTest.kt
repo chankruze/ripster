@@ -119,6 +119,7 @@ class PornhubAdapterTest {
         assertEquals("https://cdn.example/v/master.m3u8", source.manifestUrl)
         assertEquals("Synthetic Fixture Title", source.foundOnPage?.title)
         assertEquals(MediaDeclaration.OpenGraph, source.foundOnPage?.declaration)
+        assertEquals("https://cdn.example/thumb.jpg", source.thumbnailUrl)
     }
 
     @Test

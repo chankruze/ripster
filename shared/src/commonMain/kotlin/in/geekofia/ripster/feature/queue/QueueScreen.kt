@@ -43,6 +43,7 @@ import `in`.geekofia.ripster.core.source.message
 import `in`.geekofia.ripster.feature.home.formatBitrate
 import `in`.geekofia.ripster.platform.FileActions
 import `in`.geekofia.ripster.ui.components.ScreenScaffold
+import `in`.geekofia.ripster.ui.components.ThumbnailTile
 import kotlinx.coroutines.launch
 
 /** Wires [QueueViewModel] to the stateless [QueueScreen]. */
@@ -142,7 +143,8 @@ private fun JobCard(job: DownloadJob, actions: JobActions) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ThumbnailTile(job.thumbnailUrl)
                 Text(job.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 Text(job.stateLabel(), style = MaterialTheme.typography.labelMedium, color = job.stateColor())
             }

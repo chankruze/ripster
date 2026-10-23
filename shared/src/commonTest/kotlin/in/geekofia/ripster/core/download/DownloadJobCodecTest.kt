@@ -27,6 +27,12 @@ class DownloadJobCodecTest {
     }
 
     @Test
+    fun roundTripsAThumbnailUrl() {
+        val job = testJob(id = "t").copy(thumbnailUrl = "https://cdn.example/thumb.jpg?token=abc")
+        assertEquals(listOf(job), roundTrip(listOf(job)))
+    }
+
+    @Test
     fun roundTripsDirectFileJobs() {
         val mkv = testJob(id = "f", state = DownloadState.Completed, variantUrl = null).copy(
             file = FileContainer.Matroska,
@@ -36,15 +42,27 @@ class DownloadJobCodecTest {
     }
 
     @Test
-    fun readsQueuesSavedBeforeDirectFiles() {
-        // A version 1 record: 23 fields, no file container or output MIME type.
+    fun readsOlderQueueVersions() {
+        // Re-label the current record with fewer fields, as each older version stored them:
+        // q2 dropped the thumbnail (last field); q1 also dropped the file container and output MIME.
         val job = testJob(id = "old", state = DownloadState.Completed).copy(output = testOutput)
-        val v2 = DownloadJobCodec.encode(listOf(job))
-        val v1 = "q1" + v2.removePrefix("q2").split('\u001F').dropLast(2).joinToString("\u001F")
-        val decoded = DownloadJobCodec.decode(v1).single()
-        assertEquals(null, decoded.file)
-        assertEquals("video/mp4", decoded.output?.mimeType)
-        assertEquals(job, decoded)
+        val (_, record) = DownloadJobCodec.encode(listOf(job)).split('\u001E')
+        val fields = record.split('\u001F')
+
+        fun older(version: String, keep: Int) =
+            version + "\u001E" + fields.take(keep).joinToString("\u001F")
+
+        val fromV2 = DownloadJobCodec.decode(older("q2", 25)).single()
+        assertEquals(null, fromV2.thumbnailUrl)
+        assertEquals(job, fromV2)
+
+        val fromV1 = DownloadJobCodec.decode(older("q1", 23)).single()
+        assertEquals(null, fromV1.file)
+        assertEquals(null, fromV1.thumbnailUrl)
+        assertEquals("video/mp4", fromV1.output?.mimeType)
+        assertEquals(job, fromV1)
+
+        assertEquals(emptyList(), DownloadJobCodec.decode(older("q9", 26)), "an unknown version is ignored")
     }
 
     @Test
