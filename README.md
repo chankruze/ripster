@@ -125,3 +125,63 @@ paste a link
   straight to export when the media is already on the device. Unsupported sources aren't retried.
 - **Isolation:** each job's cached data is keyed by its id, so two jobs for the same link never
   share data, and data that has gone missing is downloaded again instead of failing forever.
+
+## Supported sources
+
+| Input | What Ripster does | Output |
+| --- | --- | --- |
+| HLS master or media playlist (`.m3u8`, VOD) | Lists variants (resolution, frame rate, bitrate, codecs) with the matching audio; downloads only the chosen one | MP4, remuxed without re-encoding when the codecs allow (H.264/H.265 + AAC) |
+| Direct MP4, MKV or WebM file | Recognised from its first bytes, not its name or content type; size used for the storage check | The original file, unchanged |
+| Web page | Reads `<video>`/`<source>`, Open Graph `og:video*` and schema.org `VideoObject` links; HLS preferred, then files; up to 3 tried | As above |
+| A page on a site with an adapter | The adapter reads the page's public metadata (title, thumbnail, duration, canonical URL) and offers a download only for a link the page openly declares that passes the checks above | As above, or a typed reason why there is nothing to download |
+
+Rejected, each with its own message: plain `http`, URLs with credentials, live streams, DRM and
+SAMPLE-AES encryption, pages that declare nothing usable, HTTP errors (expired links are told
+apart from denied access when the URL is signed), and too little free space (about twice the
+download plus 50 MB is needed while it's being saved). Clear-key AES-128 HLS is supported.
+
+### Site adapters
+
+There is one, for Pornhub watch pages (`view_video.php?viewkey=…` on `pornhub.com` /
+`pornhub.org`, with exact-domain matching so lookalike hosts aren't claimed). Its outcomes are
+typed: *resolved*, *metadata only* (the page provides no openly declared source), *unsupported*,
+*restricted* (access denied, sign-in or age verification, which are never bypassed),
+*unavailable* and *network error*. Only *resolved* can start a download. Further sites can be
+added as another `SiteAdapter` without touching the rest.
+
+## Sample streams
+
+Debug builds show three public test streams, defined only in `core/source/SampleSources.kt`.
+They're test inputs whose availability can change; they grant no redistribution rights.
+
+| Sample | URL | Exercises |
+| --- | --- | --- |
+| Big Buck Bunny | `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8` | Basic end-to-end download and MP4 export |
+| Apple BipBop (fMP4) | `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8` | Adaptive master playlist, fragmented MP4, separate AAC / AC-3 / E-AC-3 audio |
+| Tears of Steel | `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8` | Longer download: progress, cancellation, recovery |
+
+## What has been tested
+
+On a physical device (Android 16, API 36):
+
+- **Big Buck Bunny**: downloaded and exported to a 488 MB 1080p MP4. Verified on a computer with
+  `ffprobe` (H.264 1920×1080 + AAC, 634.6 s, matching the playlist) and a full `ffmpeg` decode
+  without errors. Recovery was exercised too: after a crash mid-export, the export restarted on
+  its own at the next launch.
+- **Apple BipBop** and **Tears of Steel**: downloaded and exported successfully, and parallel
+  downloads worked (tested by hand on the device).
+- **A direct MP4 found on a web page** (a fragmented MP4, 2560×1440): downloaded and saved; the
+  saved file is byte-identical to the download (SHA-256) and decodes fully.
+
+By unit tests only (138 tests in `commonTest` and `androidHostTest`, run on the JVM):
+
+- URL rules, the M3U8 parser, page reading and metadata fallbacks, file sniffing, the queue
+  codec (including old formats), state transitions, error messages;
+- the resolvers with a fake network, including web pages and the site adapter (synthetic HTML
+  fixtures; no live sites are contacted);
+- the coordinator with a fake engine and exporter: cancellation races, retry, recovery after
+  process death, storage checks, data isolation, and that unresolved sources never reach the
+  download engine.
+
+Not yet tested on a device: exporting an AC-3 / E-AC-3 BipBop variant, MKV and WebM files,
+choosing a SAF output folder, and the minified release build (it's unsigned without a keystore).
