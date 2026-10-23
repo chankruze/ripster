@@ -78,11 +78,18 @@ class PornhubAdapter(private val http: HttpClient) : SiteAdapter {
         }
 
         val html = response.body.decodeToString()
-        val metadata = PageMediaExtractor.metadata(html, response.finalUrl).let { found ->
-            // Only a canonical URL on the same site, for the same video, is kept.
-            val canonical = found.canonicalUrl?.takeIf { (match(it) as? SiteMatch.Page)?.id == page.id }
-            found.copy(canonicalUrl = canonical ?: page.url)
+        val found = PageMediaExtractor.metadata(html, response.finalUrl)
+        // A canonical URL elsewhere on the site (e.g. the front page) means the site served another
+        // page at this address, typically an age-verification or sign-in page: a restriction, not a
+        // missing video, and not something to work around.
+        val canonicalMatch = found.canonicalUrl?.let(::match)
+        if (canonicalMatch != null && (canonicalMatch as? SiteMatch.Page)?.id != page.id) {
+            return SiteResolution.Restricted(
+                "The site showed a different page instead of the video (for example age verification or sign-in), which Ripster doesn't bypass.",
+            )
         }
+        // Only a canonical URL on the same site, for the same video, is kept.
+        val metadata = found.copy(canonicalUrl = found.canonicalUrl?.takeIf { canonicalMatch is SiteMatch.Page } ?: page.url)
         if (!metadata.isVideoPage) {
             return SiteResolution.Unavailable("The page doesn't describe a video. It may have been removed or made private.")
         }

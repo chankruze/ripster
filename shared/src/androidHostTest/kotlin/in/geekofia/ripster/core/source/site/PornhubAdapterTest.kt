@@ -163,6 +163,22 @@ class PornhubAdapterTest {
     }
 
     @Test
+    fun anAgeGateServedAtTheWatchUrlIsRestrictedNotUnavailable() {
+        // Shaped like a front page behind an age-verification overlay: site-name title, a canonical
+        // link to the front page, and no video metadata.
+        http.page(
+            watchUrl,
+            """
+            <html><head><title>Site</title><link rel="canonical" href="https://www.pornhub.com/" /></head>
+            <body><div id="ageVerificationOverlay"><button>I am 18 or older</button></div></body></html>
+            """.trimIndent(),
+        )
+        val error = siteError()
+        assertEquals(SiteOutcome.Restricted, error.outcome)
+        assertEquals(ErrorCategory.Unauthorized, error.category)
+    }
+
+    @Test
     fun aCanonicalUrlOffTheSiteIsIgnored() {
         http.page(watchUrl, metadataOnlyPage.replace("https://www.pornhub.org/view_video.php?viewkey=6892418cc3800", "https://lookalike.example/x"))
         assertEquals(watchUrl, rejection().page?.canonicalUrl)
